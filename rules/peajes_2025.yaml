@@ -1,0 +1,221 @@
+# Generado por scripts/build_rules_from_boe.py desde el XML oficial del BOE. No editar a mano.
+rules:
+- id: PEAJE-POT-3.0TD-P1-2025
+  kind: peaje_potencia_eur_kw_anio
+  tariff: 3.0TD
+  period: P1
+  value: '14.723431'
+  unit: EUR/kW/año
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-ENE-3.0TD-P1-2025
+  kind: peaje_energia_eur_kwh
+  tariff: 3.0TD
+  period: P1
+  value: '0.028528'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-POT-3.0TD-P2-2025
+  kind: peaje_potencia_eur_kw_anio
+  tariff: 3.0TD
+  period: P2
+  value: '7.781964'
+  unit: EUR/kW/año
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-ENE-3.0TD-P2-2025
+  kind: peaje_energia_eur_kwh
+  tariff: 3.0TD
+  period: P2
+  value: '0.012343'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-POT-3.0TD-P3-2025
+  kind: peaje_potencia_eur_kw_anio
+  tariff: 3.0TD
+  period: P3
+  value: '2.468252'
+  unit: EUR/kW/año
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-ENE-3.0TD-P3-2025
+  kind: peaje_energia_eur_kwh
+  tariff: 3.0TD
+  period: P3
+  value: '0.004673'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-POT-3.0TD-P4-2025
+  kind: peaje_potencia_eur_kw_anio
+  tariff: 3.0TD
+  period: P4
+  value: '1.887267'
+  unit: EUR/kW/año
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-ENE-3.0TD-P4-2025
+  kind: peaje_energia_eur_kwh
+  tariff: 3.0TD
+  period: P4
+  value: '0.002682'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-POT-3.0TD-P5-2025
+  kind: peaje_potencia_eur_kw_anio
+  tariff: 3.0TD
+  period: P5
+  value: '0.533883'
+  unit: EUR/kW/año
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-ENE-3.0TD-P5-2025
+  kind: peaje_energia_eur_kwh
+  tariff: 3.0TD
+  period: P5
+  value: '0.000119'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-POT-3.0TD-P6-2025
+  kind: peaje_potencia_eur_kw_anio
+  tariff: 3.0TD
+  period: P6
+  value: '0.533883'
+  unit: EUR/kW/año
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-ENE-3.0TD-P6-2025
+  kind: peaje_energia_eur_kwh
+  tariff: 3.0TD
+  period: P6
+  value: '0.000031'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-POT-6.1TD-P1-2025
+  kind: peaje_potencia_eur_kw_anio
+  tariff: 6.1TD
+  period: P1
+  value: '23.669055'
+  unit: EUR/kW/año
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-ENE-6.1TD-P1-2025
+  kind: peaje_energia_eur_kwh
+  tariff: 6.1TD
+  period: P1
+  value: '0.027104'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-POT-6.1TD-P2-2025
+  kind: peaje_potencia_eur_kw_anio
+  tariff: 6.1TD
+  period: P2
+  value: '12.513915'
+  unit: EUR/kW/año
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-ENE-6.1TD-P2-2025
+  kind: peaje_energia_eur_kwh
+  tariff: 6.1TD
+  period: P2
+  value: '0.011894'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-POT-6.1TD-P3-2025
+  kind: peaje_potencia_eur_kw_anio
+  tariff: 6.1TD
+  period: P3
+  value: '4.696330'
+  unit: EUR/kW/año
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-ENE-6.1TD-P3-2025
+  kind: peaje_energia_eur_kwh
+  tariff: 6.1TD
+  period: P3
+  value: '0.004726'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-POT-6.1TD-P4-2025
+  kind: peaje_potencia_eur_kw_anio
+  tariff: 6.1TD
+  period: P4
+  value: '3.309245'
+  unit: EUR/kW/año
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-ENE-6.1TD-P4-2025
+  kind: peaje_energia_eur_kwh
+  tariff: 6.1TD
+  period: P4
+  value: '0.002739'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-POT-6.1TD-P5-2025
+  kind: peaje_potencia_eur_kw_anio
+  tariff: 6.1TD
+  period: P5
+  value: '0.069965'
+  unit: EUR/kW/año
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-ENE-6.1TD-P5-2025
+  kind: peaje_energia_eur_kwh
+  tariff: 6.1TD
+  period: P5
+  value: '0.000122'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-POT-6.1TD-P6-2025
+  kind: peaje_potencia_eur_kw_anio
+  tariff: 6.1TD
+  period: P6
+  value: '0.062286'
+  unit: EUR/kW/año
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+- id: PEAJE-ENE-6.1TD-P6-2025
+  kind: peaje_energia_eur_kwh
+  tariff: 6.1TD
+  period: P6
+  value: '0.000029'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Resolución CNMC 4/12/2024, BOE-A-2024-26218 (peajes T&D 2025)
+  valid_to: '2025-12-31'
+verificar:
+- 'Excesos de potencia 2025 no cargados: el Anexo II fue modificado por Resolución 6/3/2025 (BOE-A-2025-5341).'
+- La corrección de errores de 23/12/2024 (BOE-A-2024-27271) solo afecta a tablas de autoconsumo (no usadas).

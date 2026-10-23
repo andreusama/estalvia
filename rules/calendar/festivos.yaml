@@ -1,0 +1,119 @@
+# Generado por scripts/build_rules_from_boe.py. No editar a mano.
+nacionales_tarifarios:
+  2025:
+  - fecha: '2025-01-01'
+    nombre: Año Nuevo
+  - fecha: '2025-01-06'
+    nombre: Epifanía del Señor (tipo D por el art. 7.2.b)
+  - fecha: '2025-05-01'
+    nombre: Fiesta del Trabajo
+  - fecha: '2025-08-15'
+    nombre: Asunción de la Virgen
+  - fecha: '2025-11-01'
+    nombre: Todos los Santos
+  - fecha: '2025-12-06'
+    nombre: Día de la Constitución Española
+  - fecha: '2025-12-08'
+    nombre: Inmaculada Concepción
+  - fecha: '2025-12-25'
+    nombre: Natividad del Señor
+  2026:
+  - fecha: '2026-01-01'
+    nombre: Año Nuevo
+  - fecha: '2026-01-06'
+    nombre: Epifanía del Señor (tipo D por el art. 7.2.b)
+  - fecha: '2026-05-01'
+    nombre: Fiesta del Trabajo
+  - fecha: '2026-08-15'
+    nombre: Asunción de la Virgen
+  - fecha: '2026-10-12'
+    nombre: Fiesta Nacional de España
+  - fecha: '2026-12-08'
+    nombre: Inmaculada Concepción
+  - fecha: '2026-12-25'
+    nombre: Natividad del Señor
+cataluna_informativo:
+  2025:
+  - fecha: '2025-01-01'
+    nombre: Año Nuevo
+    marca: '*'
+  - fecha: '2025-01-06'
+    nombre: Epifanía del Señor
+    marca: '**'
+  - fecha: '2025-04-18'
+    nombre: Viernes Santo
+    marca: '*'
+  - fecha: '2025-04-21'
+    nombre: Lunes de Pascua
+    marca: '***'
+  - fecha: '2025-05-01'
+    nombre: Fiesta del Trabajo
+    marca: '*'
+  - fecha: '2025-06-24'
+    nombre: San Juan
+    marca: '***'
+  - fecha: '2025-08-15'
+    nombre: Asunción de la Virgen
+    marca: '*'
+  - fecha: '2025-09-11'
+    nombre: Fiesta Nacional de Cataluña
+    marca: '***'
+  - fecha: '2025-11-01'
+    nombre: Todos los Santos
+    marca: '*'
+  - fecha: '2025-12-06'
+    nombre: Día de la Constitución Española
+    marca: '*'
+  - fecha: '2025-12-08'
+    nombre: Inmaculada Concepción
+    marca: '*'
+  - fecha: '2025-12-25'
+    nombre: Natividad del Señor
+    marca: '*'
+  - fecha: '2025-12-26'
+    nombre: San Esteban
+    marca: '***'
+  2026:
+  - fecha: '2026-01-01'
+    nombre: Año Nuevo
+    marca: '*'
+  - fecha: '2026-01-06'
+    nombre: Epifanía del Señor
+    marca: '**'
+  - fecha: '2026-04-03'
+    nombre: Viernes Santo
+    marca: '*'
+  - fecha: '2026-04-06'
+    nombre: Lunes de Pascua
+    marca: '***'
+  - fecha: '2026-05-01'
+    nombre: Fiesta del Trabajo
+    marca: '*'
+  - fecha: '2026-06-24'
+    nombre: San Juan
+    marca: '***'
+  - fecha: '2026-08-15'
+    nombre: Asunción de la Virgen
+    marca: '*'
+  - fecha: '2026-09-11'
+    nombre: Fiesta Nacional de Cataluña
+    marca: '***'
+  - fecha: '2026-10-12'
+    nombre: Fiesta Nacional de España
+    marca: '*'
+  - fecha: '2026-12-08'
+    nombre: Inmaculada Concepción
+    marca: '*'
+  - fecha: '2026-12-25'
+    nombre: Natividad del Señor
+    marca: '*'
+  - fecha: '2026-12-26'
+    nombre: San Esteban
+    marca: '***'
+nota: Los periodos tarifarios solo usan festivos NACIONALES (Circular 3/2020, art.
+  7.2.b); los festivos de Cataluña NO cambian los periodos. Marca * = nacional no
+  sustituible, ** = sustituible, *** = propio de la comunidad. Los locales no están
+  incluidos.
+fuentes:
+  2025: BOE-A-2024-21316
+  2026: BOE-A-2025-21667

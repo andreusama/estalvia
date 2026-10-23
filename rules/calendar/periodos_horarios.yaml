@@ -1,0 +1,21 @@
+# Periodos horarios 3.0TD y 6.xTD, Península. Fuente: Circular 3/2020 CNMC (BOE-A-2020-1066), art. 7.2.
+# Hora = hora de inicio (h) del tramo [h, h+1). Cataluña pertenece al sistema peninsular: usa esta tabla.
+fuente: "Circular 3/2020 CNMC, BOE-A-2020-1066, art. 7.2"
+aplica_a: [3.0TD, 6.1TD, 6.2TD, 6.3TD, 6.4TD]
+temporadas:
+  alta: [1, 2, 7, 12]
+  media_alta: [3, 11]
+  media: [6, 8, 9]
+  baja: [4, 5, 10]
+tipo_de_dia:
+  A: "lunes a viernes no festivos, temporada alta"
+  B: "lunes a viernes no festivos, temporada media alta"
+  B1: "lunes a viernes no festivos, temporada media"
+  C: "lunes a viernes no festivos, temporada baja"
+  D: "sábados, domingos, festivos nacionales y 6 de enero"
+horas:
+  A:  {P1: [[9, 14], [18, 22]], P2: [[8, 9], [14, 18], [22, 24]], P6: [[0, 8]]}
+  B:  {P2: [[9, 14], [18, 22]], P3: [[8, 9], [14, 18], [22, 24]], P6: [[0, 8]]}
+  B1: {P3: [[9, 14], [18, 22]], P4: [[8, 9], [14, 18], [22, 24]], P6: [[0, 8]]}
+  C:  {P4: [[9, 14], [18, 22]], P5: [[8, 9], [14, 18], [22, 24]], P6: [[0, 8]]}
+  D:  {P6: [[0, 24]]}
