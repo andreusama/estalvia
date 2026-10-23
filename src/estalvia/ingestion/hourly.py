@@ -54,8 +54,9 @@ class CalidadMes:
 
 @dataclass(frozen=True)
 class Calidad:
-    # Horas (UTC) sin lectura ENTRE la primera y la última lectura; nunca se rellenan. Las horas que
-    # faltan antes de la primera o después de la última no se listan, pero sí cuentan en `faltantes` del mes.
+    # Horas (UTC) sin lectura dentro de los días locales completos que toca el fichero (desde las 00:00 del
+    # primer día hasta las 24:00 del último); nunca se rellenan. Los días enteros que no toca el fichero no
+    # se listan, pero sí cuentan en `faltantes` del mes.
     huecos: list[datetime]
     # Mes local -> recuento. Incluye los meses sin lecturas entre el primero y el último con datos.
     meses: dict[tuple[int, int], CalidadMes]
@@ -72,12 +73,13 @@ class Ingesta:
     lecturas: list[Lectura]
     calidad: Calidad
 
-    def etiquetadas(self, calendario: Calendario, tarifa: str = "3.0TD") -> list[tuple[Lectura, str]]:
-        """Cada lectura con su periodo de energía (solo península). 3.0TD y 6.xTD: P1-P6; 2.0TD: P1-P3."""
+    def etiquetadas(self, calendario: Calendario, *, tarifa: str) -> list[tuple[Lectura, str]]:
+        """Cada lectura con su periodo de energía (solo península). 3.0TD y 6.xTD: P1-P6; 2.0TD: P1-P3.
+        La tarifa es obligatoria: etiquetar con la tarifa equivocada no da error y daría periodos erróneos."""
         return _etiquetar(self.lecturas, calendario, tarifa)
 
-    def totales_por_periodo(self, calendario: Calendario, desde: datetime | None = None,
-                            hasta: datetime | None = None, tarifa: str = "3.0TD") -> dict[str, TotalPeriodo]:
+    def totales_por_periodo(self, calendario: Calendario, *, tarifa: str, desde: datetime | None = None,
+                            hasta: datetime | None = None) -> dict[str, TotalPeriodo]:
         """kWh y kVArh por periodo en [desde, hasta); sin límites, todas las lecturas."""
         for limite in (desde, hasta):
             if limite is not None and limite.tzinfo is None:
@@ -120,8 +122,11 @@ def _calidad(lecturas: list[Lectura]) -> Calidad:
         return Calidad([], {})
     presentes = {x.instante_utc for x in lecturas}
     primero, ultimo = min(presentes), max(presentes)
-    huecos, instante = [], primero
-    while instante <= ultimo:
+    dia_primero = primero.astimezone(MADRID).date()
+    dia_ultimo = ultimo.astimezone(MADRID).date()
+    huecos, instante = [], _medianoche_utc(dia_primero)
+    fin = _medianoche_utc(dia_ultimo + timedelta(days=1))
+    while instante < fin:
         if instante not in presentes:
             huecos.append(instante)
         instante += timedelta(hours=1)
@@ -181,6 +186,11 @@ def _medianoche_utc(dia: date) -> datetime:
     return datetime(dia.year, dia.month, dia.day, tzinfo=MADRID).astimezone(timezone.utc)
 
 
+def _horas_del_dia(dia: date) -> int:
+    """Horas reales del día local de Madrid: 23, 24 o 25."""
+    return int((_medianoche_utc(dia + timedelta(days=1)) - _medianoche_utc(dia)).total_seconds() // 3600)
+
+
 def _leer_fecha_hora_kwh(datos: bytes) -> list[Lectura]:
     lector = csv.DictReader(io.StringIO(datos.decode("utf-8-sig")), delimiter=";")
     if tuple(lector.fieldnames or ()) != COLUMNAS_FECHA_HORA_KWH:
@@ -198,7 +208,7 @@ def _leer_fecha_hora_kwh(datos: bytes) -> list[Lectura]:
             raise IngestError(f"línea {n}: hora no es un entero: {fila['hour']!r}") from None
         # Horas reales del día local (23, 24 o 25). NO verificado con un fichero real de cambio de hora
         # de este portal: una hora fuera del día es error y una hora ausente sale como hueco en la calidad.
-        horas_del_dia = int((_medianoche_utc(dia + timedelta(days=1)) - _medianoche_utc(dia)).total_seconds() // 3600)
+        horas_del_dia = _horas_del_dia(dia)
         if not 1 <= hora <= horas_del_dia:
             raise IngestError(f"línea {n}: hora {hora} fuera del día {dia} (tiene {horas_del_dia} horas)")
         valor = fila["kwh"].strip()

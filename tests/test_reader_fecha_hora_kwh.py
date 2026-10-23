@@ -86,7 +86,7 @@ def test_cabecera_incorrecta_duplicados_y_lector_desconocido():
 
 
 def test_totales_por_periodo_dejan_kvarh_desconocido_en_none():
-    t = ingest_hourly(csv_portal(dia("2026-09-10")), lector=L).totales_por_periodo(CAL)
+    t = ingest_hourly(csv_portal(dia("2026-09-10")), lector=L).totales_por_periodo(CAL, tarifa="3.0TD")
     assert sum(v.kwh for v in t.values()) == D("24.0")
     assert all(v.kvarh is None for v in t.values())
 
@@ -98,7 +98,28 @@ def test_etiquetado_2_0td_con_tres_periodos_de_energia():
     assert {p: v.kwh for p, v in t.items()} == {"P1": D("8.0"), "P2": D("8.0"), "P3": D("8.0")}
     # 3.0TD (por defecto), septiembre = temporada media, tipo B1:
     # P3 = 10-14 y 18-22 (9 h), P4 = 8-10, 14-18 y 22-24 (7 h), P6 = 0-8 (8 h)
-    assert {p: v.kwh for p, v in ing.totales_por_periodo(CAL).items()} == {
+    assert {p: v.kwh for p, v in ing.totales_por_periodo(CAL, tarifa="3.0TD").items()} == {
         "P3": D("9.0"), "P4": D("7.0"), "P6": D("8.0")}
     with pytest.raises(ValueError, match="tarifa"):
         ing.totales_por_periodo(CAL, tarifa="9.9TD")
+
+
+def test_hora_final_ausente_de_un_dia_de_25_horas_se_informa_como_hueco():
+    filas = dia("2026-10-25", horas=24)  # falta la hora 25, la última del día
+    r = ingest_hourly(csv_portal(filas), lector=L)
+    ultimo_dia_utc = datetime(2026, 10, 24, 22, 0, tzinfo=timezone.utc) + timedelta(hours=24)  # hora 25 = 23:00 local
+    assert r.calidad.huecos == [ultimo_dia_utc]
+
+
+def test_horas_ausentes_al_principio_del_primer_dia_se_informan_como_huecos():
+    filas = [f"2026-09-01;{h};1,0" for h in range(5, 25)]  # faltan las horas 1 a 4
+    r = ingest_hourly(csv_portal(filas), lector=L)
+    inicio = datetime(2026, 8, 31, 22, 0, tzinfo=timezone.utc)
+    assert r.calidad.huecos == [inicio + timedelta(hours=i) for i in range(4)]
+
+
+def test_un_mes_solo_de_lecturas_desconocidas_esta_completo_en_cobertura():
+    # Decisión: `completo` mide cobertura de horas, no la calidad real/estimada (eso es `desconocidas`).
+    filas = [f for d in range(1, 31) for f in dia(f"2026-06-{d:02d}")]
+    m = ingest_hourly(csv_portal(filas), lector=L).calidad.meses[(2026, 6)]
+    assert (m.completo, m.desconocidas, m.reales, m.estimadas) == (True, 720, 0, 0)
