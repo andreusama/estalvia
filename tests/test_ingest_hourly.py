@@ -19,6 +19,10 @@ def csv_horas(inicio_utc: datetime, n: int, kwh="1.5", kvarh="0.2", tipo="real")
     return "\n".join(filas).encode()
 
 
+def leer(datos: bytes):
+    return ingest_hourly(datos).lecturas
+
+
 def dia_local(y, m, d) -> tuple[datetime, int]:
     """Inicio UTC y número real de horas de un día local de Madrid (calculado con el reloj de zoneinfo)."""
     ini = datetime(y, m, d, tzinfo=MAD).astimezone(timezone.utc)
@@ -29,7 +33,7 @@ def dia_local(y, m, d) -> tuple[datetime, int]:
 
 def test_dia_normal_24_lecturas_con_instante_madrid_y_utc():
     ini, n = dia_local(2026, 6, 10)
-    lecturas = ingest_hourly(csv_horas(ini, n))
+    lecturas = leer(csv_horas(ini, n))
     assert len(lecturas) == 24
     primera = lecturas[0]
     assert primera.instante_utc == datetime(2026, 6, 9, 22, 0, tzinfo=timezone.utc)
@@ -41,7 +45,7 @@ def test_dia_normal_24_lecturas_con_instante_madrid_y_utc():
 def test_dia_de_25_horas_octubre_tiene_25_lecturas():
     ini, n = dia_local(2026, 10, 25)
     assert n == 25  # valor conocido: último domingo de octubre
-    lecturas = ingest_hourly(csv_horas(ini, n))
+    lecturas = leer(csv_horas(ini, n))
     assert len(lecturas) == 25
     # La hora 02:00 local aparece dos veces, una con +02:00 y otra con +01:00
     dos = [x for x in lecturas if x.instante_local.hour == 2]
@@ -52,14 +56,14 @@ def test_dia_de_25_horas_octubre_tiene_25_lecturas():
 def test_dia_de_23_horas_marzo_tiene_23_lecturas():
     ini, n = dia_local(2026, 3, 29)
     assert n == 23  # valor conocido: último domingo de marzo
-    lecturas = ingest_hourly(csv_horas(ini, n))
+    lecturas = leer(csv_horas(ini, n))
     assert len(lecturas) == 23
     assert 2 not in {x.instante_local.hour for x in lecturas}  # la 02:00 local no existe
 
 
 def test_ida_y_vuelta_madrid_utc_sin_perdida():
     ini, n = dia_local(2026, 10, 25)
-    for x in ingest_hourly(csv_horas(ini, n)):
+    for x in leer(csv_horas(ini, n)):
         assert x.instante_utc.astimezone(MAD) == x.instante_local
         assert x.instante_local.utcoffset() == x.instante_local.astimezone(MAD).utcoffset()
         assert x.instante_local.astimezone(timezone.utc) == x.instante_utc
@@ -67,7 +71,7 @@ def test_ida_y_vuelta_madrid_utc_sin_perdida():
 
 def test_cantidades_son_decimal_exactos():
     ini, _ = dia_local(2026, 6, 10)
-    x = ingest_hourly(csv_horas(ini, 1, kwh="0.1", kvarh="0.30"))[0]
+    x = leer(csv_horas(ini, 1, kwh="0.1", kvarh="0.30"))[0]
     assert isinstance(x.kwh, D) and isinstance(x.kvarh, D)
     assert x.kwh + D("0.2") == D("0.3")  # con float daría 0.30000000000000004
 
@@ -100,4 +104,4 @@ def test_instante_duplicado_se_rechaza():
 def test_valores_negativos_no_se_rechazan_porque_la_regla_no_esta_decidida():
     # Exportación neta o compensación de reactiva pueden dar negativos: no se inventa la regla.
     ini, _ = dia_local(2026, 6, 10)
-    assert ingest_hourly(csv_horas(ini, 1, kwh="-0.4"))[0].kwh == D("-0.4")
+    assert leer(csv_horas(ini, 1, kwh="-0.4"))[0].kwh == D("-0.4")
