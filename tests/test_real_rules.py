@@ -121,3 +121,13 @@ def test_bono_social_solo_desde_julio_2026_y_falla_antes():
     assert RS.find("bono_social_eur_cups_anio", date(2026, 9, 15)).value == D("9.011295")
     with pytest.raises(MissingRuleError):
         RS.find("bono_social_eur_cups_anio", date(2026, 6, 30))
+
+
+def test_2_0td_no_tiene_periodos_p4_a_p6_de_energia_ni_p3_a_p6_de_potencia():
+    for p in ("P4", "P5", "P6"):
+        for kind in ("peaje_energia_eur_kwh", "cargo_energia_eur_kwh"):
+            with pytest.raises(MissingRuleError):
+                RS.find(kind, D26, "2.0TD", p)
+    for p in ("P3", "P4", "P5", "P6"):
+        with pytest.raises(MissingRuleError):
+            RS.find("cargo_potencia_eur_kw_anio", D26, "2.0TD", p)

@@ -92,11 +92,11 @@ def _prorrata_anual(reglas: RuleSet, kind: str, concepto: str, tarifa: str | Non
     return _linea(concepto, cantidad, ultima.value, acum, ultima, mode)
 
 
-def _regla_energia(reglas: RuleSet, kind: str, site: SiteParams, p: str, periodo: Periodo):
+def _regla_energia(reglas: RuleSet, kind: str, tarifa: str, p: str, periodo: Periodo):
     # Una única regla por periodo tarifario; si cambia dentro del periodo facturado hay que partir
     # las lecturas (no se asume nada en silencio).
-    r0 = reglas.find(kind, periodo.inicio, site.tarifa, p)
-    r1 = reglas.find(kind, periodo.fin, site.tarifa, p)
+    r0 = reglas.find(kind, periodo.inicio, tarifa, p)
+    r1 = reglas.find(kind, periodo.fin, tarifa, p)
     if r0.id != r1.id:
         raise MissingDataError(f"la regla de energía {p} cambia dentro del periodo; dividir las lecturas")
     return r0
@@ -114,7 +114,7 @@ def calcular_factura(site: SiteParams, lecturas: Lecturas, reglas: RuleSet, peri
                                       dias, mode))
 
     for p, kwh in sorted(lecturas.energia_kwh.items()):
-        r = _regla_energia(reglas, "energia_eur_kwh", site, p, periodo)
+        r = _regla_energia(reglas, "energia_eur_kwh", site.tarifa, p, periodo)
         lineas.append(_linea(f"energia {p}", kwh, r.value, kwh * r.value, r, mode))
 
     if site.aplica_bono_social:
@@ -162,6 +162,6 @@ def calcular_regulado(site: SiteParams, lecturas: Lecturas, reglas: RuleSet, per
                                           site.tarifa, p, kw, dias, mode))
     for p, kwh in sorted(lecturas.energia_kwh.items()):
         for nombre in ("peaje", "cargo"):
-            r = _regla_energia(reglas, f"{nombre}_energia_eur_kwh", site, p, periodo)
+            r = _regla_energia(reglas, f"{nombre}_energia_eur_kwh", site.tarifa, p, periodo)
             lineas.append(_linea(f"{nombre} energia {p}", kwh, r.value, kwh * r.value, r, mode))
     return tuple(lineas)

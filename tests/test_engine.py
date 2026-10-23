@@ -6,7 +6,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from estalvia.engine.calc import Lecturas, Periodo, SiteParams, calcular_factura
+from estalvia.engine.calc import Lecturas, Periodo, SiteParams, calcular_factura, calcular_regulado
 from estalvia.engine.errors import MissingDataError, MissingRuleError, RuleSetError
 from estalvia.engine.rules import Rule, RuleSet
 
@@ -137,7 +137,6 @@ def test_alquiler_por_dia_e_importe_a_la_vez_es_ambiguo():
 
 
 def test_desglose_regulado_informativo_no_altera_el_total():
-    from estalvia.engine.calc import calcular_regulado
     per = Periodo(date(2025, 3, 1), date(2025, 3, 31))
     lineas = calcular_regulado(site(), Lecturas({"P1": D(1000)}), RS, per)
     imp = {l.concepto: l.importe for l in lineas}
@@ -149,6 +148,5 @@ def test_desglose_regulado_informativo_no_altera_el_total():
 
 
 def test_desglose_regulado_sin_regla_falla_claro():
-    from estalvia.engine.calc import calcular_regulado
     with pytest.raises(MissingRuleError):
         calcular_regulado(site(), Lecturas({"P2": D(10)}), RS, Periodo(date(2025, 3, 1), date(2025, 3, 31)))

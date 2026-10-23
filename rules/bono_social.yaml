@@ -5,7 +5,7 @@ rules:
     value: "9.011295"
     unit: "EUR/CUPS/año"
     valid_from: 2026-07-01
-    source: "Orden TED/634/2026, de 17 de junio (BOE-A-2026-13759), valor unitario d) de comercialización: 9,011295 euros/CUPS. Aplicable desde la liquidación 7 de 2026; la factura de referencia lo aplica desde julio de 2026."
+    source: "Orden TED/634/2026, de 17 de junio (BOE-A-2026-13759), valor unitario d) de comercialización: 9,011295 euros/CUPS. La orden surte efectos el día siguiente a su publicación (25/06/2026) y es de aplicación desde la liquidación 7 de 2026 (texto del BOE). El 1 de julio de 2026 como fecha de inicio NO sale del BOE: es lo que aplica la factura de referencia; VERIFICAR."
 verificar:
   - "Valores anteriores de enero a junio de 2026 y de 2025: la factura de referencia cita 0,019121225 EUR/día (Orden TED/1524/2025) y 0,01274243 EUR/día (RDL 8/2023) como importes diarios, pero no se han verificado en el BOE y no se cargan; el motor falla con MissingRuleError para esas fechas."
-  - "Confirmar el día exacto de inicio con el calendario de liquidaciones (liquidación 7 de 2026)."
+  - "valid_from 2026-07-01 es la fecha que aplica la factura de referencia, no una fecha del BOE: confirmar a qué días corresponde la liquidación 7 de 2026 en el calendario de liquidaciones."

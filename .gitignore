@@ -4,3 +4,9 @@ __pycache__/
 .coverage
 *.egg-info/
 .env
+
+# Datos privados de clientes (nunca al repositorio)
+data/private/
+*.pdf
+invoice-*.csv
+tests/golden/private/
