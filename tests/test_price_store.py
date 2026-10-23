@@ -2,6 +2,8 @@
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal as D
 
+import pytest
+
 from estalvia.prices.store import PricePoint, PriceStore, SourceError
 
 T0 = datetime(2026, 6, 10, 0, 0, tzinfo=timezone.utc)
@@ -101,3 +103,59 @@ def test_fuente_que_responde_sin_precios_es_incompleto():
     t, _ = tienda(Vacia())
     r = t.get(DESDE, HASTA)
     assert not r.completo and r.puntos == [] and "sin precios" in r.error
+
+
+def test_fecha_sin_zona_horaria_se_rechaza():
+    t, _ = tienda(FuenteFalsa())
+    with pytest.raises(ValueError, match="zona horaria"):
+        t.get(datetime(2026, 6, 10), datetime(2026, 6, 11))
+
+
+class FuenteParcial(FuenteFalsa):
+    """Responde con huecos: cuartohoraria con un cuarto de hora ausente."""
+
+    def fetch(self, desde, hasta):
+        self.llamadas += 1
+        pts = [PricePoint(desde + timedelta(minutes=15 * i), D(i)) for i in range(12)]
+        del pts[5]
+        return pts
+
+
+def test_respuesta_con_huecos_es_incompleta_y_no_se_cachea():
+    f = FuenteParcial()
+    t, _ = tienda(f)
+    r = t.get(DESDE, HASTA)
+    assert not r.completo and r.puntos == [] and "faltan 1" in r.error
+    t.get(DESDE, HASTA)
+    assert f.llamadas == 2
+
+
+def test_respuesta_que_no_llega_al_final_del_rango_es_incompleta():
+    class Corta(FuenteFalsa):
+        def fetch(self, desde, hasta):
+            return [PricePoint(desde + timedelta(hours=i), D(i)) for i in range(2)]  # falta la última hora
+
+    t, _ = tienda(Corta())
+    assert not t.get(DESDE, HASTA).completo
+
+
+def test_resultado_expone_la_resolucion_y_la_atribucion():
+    class Cuartohoraria(FuenteFalsa):
+        atribucion = "Fuente: www.ree.es"
+
+        def fetch(self, desde, hasta):
+            return [PricePoint(desde + timedelta(minutes=15 * i), D(i)) for i in range(12)]
+
+    r = tienda(Cuartohoraria())[0].get(DESDE, HASTA)
+    assert r.completo and r.paso == timedelta(minutes=15) and r.atribucion == "Fuente: www.ree.es"
+
+
+def test_error_permanente_no_se_reintenta():
+    class Mala(FuenteFalsa):
+        def fetch(self, desde, hasta):
+            self.llamadas += 1
+            raise SourceError("petición inválida", permanente=True)
+
+    f = Mala()
+    t, pausas = tienda(f)
+    assert not t.get(DESDE, HASTA).completo and f.llamadas == 1 and pausas == []

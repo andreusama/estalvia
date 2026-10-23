@@ -10,7 +10,7 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Protocol
 
@@ -18,7 +18,11 @@ log = logging.getLogger(__name__)
 
 
 class SourceError(Exception):
-    """La fuente no pudo servir los precios."""
+    """La fuente no pudo servir los precios. `permanente`: reintentar no sirve (p. ej. HTTP 4xx)."""
+
+    def __init__(self, mensaje: str, permanente: bool = False):
+        super().__init__(mensaje)
+        self.permanente = permanente
 
 
 @dataclass(frozen=True)
@@ -40,6 +44,8 @@ class PriceResult:
     capturado_en: datetime | None
     fuente: str
     error: str | None = None
+    paso: timedelta | None = None  # resolución de los puntos (REData: 15 min); no se promedia
+    atribucion: str | None = None  # texto de cita exigido por la fuente
 
 
 @dataclass(frozen=True)
@@ -48,6 +54,7 @@ class _Captura:
     hasta: datetime
     capturado_en: datetime
     puntos: list[PricePoint]
+    paso: timedelta
 
 
 class PriceStore:
@@ -63,6 +70,10 @@ class PriceStore:
 
     def get(self, desde: datetime, hasta: datetime, as_of: datetime | None = None,
             refresh: bool = False) -> PriceResult:
+        """Precios en [desde, hasta). `as_of` reproduce una captura previa sin tocar la fuente."""
+        for fecha in (desde, hasta, as_of):
+            if fecha is not None and fecha.tzinfo is None:
+                raise ValueError("las fechas deben llevar zona horaria")
         if as_of is not None:  # reproducir: nunca consulta la fuente
             previas = [c for c in self._cubren(desde, hasta) if c.capturado_en <= as_of]
             if not previas:
@@ -77,9 +88,12 @@ class PriceStore:
         except SourceError as e:
             log.warning("fuente %s falló: %s", self._source.name, e)
             return self._incompleto(str(e))
-        if not puntos:  # éxito sin datos: no es un precio, no se cachea
+        if not puntos:  # éxito sin datos: no es un precio
             return self._incompleto("la fuente respondió sin precios")
-        captura = _Captura(desde, hasta, self._clock(), puntos)
+        paso, faltan = _cobertura(puntos, desde, hasta)
+        if faltan:  # respuesta parcial: no se cachea ni se entrega
+            return self._incompleto(f"la fuente no cubre el rango: faltan {faltan} puntos")
+        captura = _Captura(desde, hasta, self._clock(), puntos, paso)
         self._capturas.append(captura)
         return self._resultado(captura, desde, hasta)
 
@@ -87,8 +101,10 @@ class PriceStore:
         for intento in range(self._reintentos):
             try:
                 return self._source.fetch(desde, hasta)
-            except SourceError:
-                if intento == self._reintentos - 1:
+            except SourceError as e:
+                log.info("fuente %s, intento %d/%d falló: %s", self._source.name, intento + 1,
+                         self._reintentos, e)
+                if e.permanente or intento == self._reintentos - 1:
                     raise
                 self._sleep(self._espera_base * 2**intento)
         raise SourceError("sin intentos")  # reintentos <= 0
@@ -98,7 +114,22 @@ class PriceStore:
 
     def _resultado(self, c: _Captura, desde: datetime, hasta: datetime) -> PriceResult:
         puntos = [p for p in c.puntos if desde <= p.instante_utc < hasta]
-        return PriceResult(puntos, True, c.capturado_en, self._source.name)
+        return PriceResult(puntos, True, c.capturado_en, self._source.name, None, c.paso,
+                           getattr(self._source, "atribucion", None))
 
     def _incompleto(self, error: str) -> PriceResult:
         return PriceResult([], False, None, self._source.name, error)
+
+
+def _cobertura(puntos: list[PricePoint], desde: datetime, hasta: datetime) -> tuple[timedelta, int]:
+    """Paso de la serie y número de puntos que faltan para cubrir [desde, hasta) sin huecos."""
+    instantes = sorted({p.instante_utc for p in puntos})
+    if not instantes:
+        return hasta - desde, 1
+    if len(instantes) > 1:
+        paso = min(b - a for a, b in zip(instantes, instantes[1:]))
+    else:
+        paso = hasta - desde
+    esperados = int((hasta - desde) / paso)
+    presentes = sum(1 for k in range(esperados) if desde + k * paso in set(instantes))
+    return paso, esperados - presentes

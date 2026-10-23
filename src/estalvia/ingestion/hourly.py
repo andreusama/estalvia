@@ -42,7 +42,8 @@ class CalidadMes:
 
 @dataclass(frozen=True)
 class Calidad:
-    # Horas (UTC) sin lectura entre la primera y la última; nunca se rellenan.
+    # Horas (UTC) sin lectura ENTRE la primera y la última lectura; nunca se rellenan. Las horas que
+    # faltan antes de la primera o después de la última no se listan, pero sí cuentan en `faltantes` del mes.
     huecos: list[datetime]
     # Mes local -> recuento. Incluye los meses sin lecturas entre el primero y el último con datos.
     meses: dict[tuple[int, int], CalidadMes]
@@ -54,10 +55,14 @@ class Ingesta:
     calidad: Calidad
 
 
+def _mes_siguiente(anio: int, mes: int) -> tuple[int, int]:
+    return anio + (mes == 12), mes % 12 + 1
+
+
 def _horas_del_mes(anio: int, mes: int) -> int:
-    ini = datetime(anio, mes, 1, tzinfo=MADRID).astimezone(timezone.utc)
-    sig = datetime(anio + (mes == 12), mes % 12 + 1, 1, tzinfo=MADRID).astimezone(timezone.utc)
-    return int((sig - ini).total_seconds() // 3600)
+    inicio = datetime(anio, mes, 1, tzinfo=MADRID).astimezone(timezone.utc)
+    siguiente = datetime(*_mes_siguiente(anio, mes), 1, tzinfo=MADRID).astimezone(timezone.utc)
+    return int((siguiente - inicio).total_seconds() // 3600)
 
 
 def _calidad(lecturas: list[Lectura]) -> Calidad:
@@ -65,25 +70,26 @@ def _calidad(lecturas: list[Lectura]) -> Calidad:
         return Calidad([], {})
     presentes = {x.instante_utc for x in lecturas}
     primero, ultimo = min(presentes), max(presentes)
-    huecos, t = [], primero
-    while t <= ultimo:
-        if t not in presentes:
-            huecos.append(t)
-        t += timedelta(hours=1)
+    huecos, instante = [], primero
+    while instante <= ultimo:
+        if instante not in presentes:
+            huecos.append(instante)
+        instante += timedelta(hours=1)
     reales: dict[tuple[int, int], int] = {}
     estimadas: dict[tuple[int, int], int] = {}
-    for x in lecturas:
-        clave = (x.instante_local.year, x.instante_local.month)
-        destino = reales if x.tipo == "real" else estimadas
+    for lectura in lecturas:
+        clave = (lectura.instante_local.year, lectura.instante_local.month)
+        destino = reales if lectura.tipo == "real" else estimadas
         destino[clave] = destino.get(clave, 0) + 1
-    a, m = primero.astimezone(MADRID).year, primero.astimezone(MADRID).month
-    fin = (ultimo.astimezone(MADRID).year, ultimo.astimezone(MADRID).month)
+    local_primero, local_ultimo = primero.astimezone(MADRID), ultimo.astimezone(MADRID)
+    mes = (local_primero.year, local_primero.month)
+    ultimo_mes = (local_ultimo.year, local_ultimo.month)
     meses: dict[tuple[int, int], CalidadMes] = {}
-    while (a, m) <= fin:
-        r, e = reales.get((a, m), 0), estimadas.get((a, m), 0)
-        falta = _horas_del_mes(a, m) - r - e
-        meses[(a, m)] = CalidadMes(r, e, falta, falta == 0)
-        a, m = a + (m == 12), m % 12 + 1
+    while mes <= ultimo_mes:
+        n_reales, n_estimadas = reales.get(mes, 0), estimadas.get(mes, 0)
+        faltantes = _horas_del_mes(*mes) - n_reales - n_estimadas
+        meses[mes] = CalidadMes(n_reales, n_estimadas, faltantes, faltantes == 0)
+        mes = _mes_siguiente(*mes)
     return Calidad(huecos, meses)
 
 
@@ -115,6 +121,8 @@ def ingest_hourly(datos: bytes) -> Ingesta:
         if tipo not in TIPOS:
             raise IngestError(f"línea {n}: tipo debe ser real o estimada, no {tipo!r}")
         utc = t.astimezone(timezone.utc)
+        if utc.minute or utc.second or utc.microsecond:
+            raise IngestError(f"línea {n}: el instante debe ser una hora en punto: {texto}")
         if utc in vistos:
             raise IngestError(f"línea {n}: instante duplicado {texto}")
         vistos.add(utc)

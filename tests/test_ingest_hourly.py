@@ -105,3 +105,9 @@ def test_valores_negativos_no_se_rechazan_porque_la_regla_no_esta_decidida():
     # Exportación neta o compensación de reactiva pueden dar negativos: no se inventa la regla.
     ini, _ = dia_local(2026, 6, 10)
     assert leer(csv_horas(ini, 1, kwh="-0.4"))[0].kwh == D("-0.4")
+
+
+def test_instante_que_no_es_hora_en_punto_se_rechaza():
+    with pytest.raises(IngestError, match="hora en punto") as e:
+        ingest_hourly(b"instante,kwh,kvarh,tipo\n2026-06-10T00:30:00+02:00,1,1,real\n")
+    assert "l\xednea 2" in str(e.value)

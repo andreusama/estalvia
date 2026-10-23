@@ -60,3 +60,24 @@ def test_json_invalido_o_error_http_es_error_de_fuente():
 
     with pytest.raises(SourceError, match="sin red"):
         REDataSource(http_get=cae).fetch(DESDE, HASTA)
+
+
+def test_http_4xx_es_error_permanente_y_5xx_no():
+    import urllib.error
+
+    def http(codigo):
+        def get(url, headers):
+            raise urllib.error.HTTPError(url, codigo, "x", {}, None)
+        return get
+
+    with pytest.raises(SourceError) as e400:
+        REDataSource(http_get=http(400)).fetch(DESDE, HASTA)
+    with pytest.raises(SourceError) as e503:
+        REDataSource(http_get=http(503)).fetch(DESDE, HASTA)
+    assert e400.value.permanente and not e503.value.permanente
+
+
+def test_fecha_sin_zona_horaria_se_rechaza():
+    f, _ = fuente(RESPUESTA)
+    with pytest.raises(ValueError, match="zona horaria"):
+        f.fetch(datetime(2026, 6, 10), HASTA)
