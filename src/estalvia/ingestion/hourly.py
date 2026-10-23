@@ -11,6 +11,7 @@ import io
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 MADRID = ZoneInfo("Europe/Madrid")
@@ -28,7 +29,7 @@ class Lectura:
     instante_local: datetime  # Europe/Madrid
     kwh: Decimal
     kvarh: Decimal
-    tipo: str
+    tipo: Literal["real", "estimada"]
 
 
 def _decimal(valor: str, linea: int, campo: str) -> Decimal:
@@ -36,8 +37,8 @@ def _decimal(valor: str, linea: int, campo: str) -> Decimal:
         d = Decimal(valor.strip())
     except InvalidOperation:
         raise IngestError(f"línea {linea}: {campo} no es un número: {valor!r}") from None
-    if not d.is_finite() or d < 0:
-        raise IngestError(f"línea {linea}: {campo} debe ser un número finito no negativo")
+    if not d.is_finite():
+        raise IngestError(f"línea {linea}: {campo} debe ser un número finito")
     return d
 
 
@@ -48,10 +49,11 @@ def ingest_hourly(datos: bytes) -> list[Lectura]:
     lecturas: list[Lectura] = []
     vistos: set[datetime] = set()
     for n, fila in enumerate(lector, start=2):
+        texto = fila["instante"].strip()
         try:
-            t = datetime.fromisoformat(fila["instante"].strip())
+            t = datetime.fromisoformat(texto)
         except ValueError:
-            raise IngestError(f"línea {n}: instante no es ISO 8601: {fila['instante']!r}") from None
+            raise IngestError(f"línea {n}: instante no es ISO 8601: {texto!r}") from None
         if t.tzinfo is None:
             raise IngestError(f"línea {n}: instante sin desfase UTC; no se supone zona horaria")
         tipo = fila["tipo"].strip()
@@ -59,7 +61,7 @@ def ingest_hourly(datos: bytes) -> list[Lectura]:
             raise IngestError(f"línea {n}: tipo debe ser real o estimada, no {tipo!r}")
         utc = t.astimezone(timezone.utc)
         if utc in vistos:
-            raise IngestError(f"línea {n}: instante duplicado {fila['instante'].strip()}")
+            raise IngestError(f"línea {n}: instante duplicado {texto}")
         vistos.add(utc)
         lecturas.append(Lectura(utc, utc.astimezone(MADRID), _decimal(fila["kwh"], n, "kwh"),
                                 _decimal(fila["kvarh"], n, "kvarh"), tipo))

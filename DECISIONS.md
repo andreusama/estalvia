@@ -13,5 +13,7 @@
 - **Python:** el TDD pide ≥3.12; el entorno local tiene 3.10, así que el código es compatible con 3.10 y el CI usa 3.12. VERIFICAR.
 - **Pendiente de VERIFICAR en el motor:** prorrateo en bisiestos (hoy día a día sobre los días del año de cada fecha),
   excesos de potencia, energía reactiva, qué conceptos entran en cada base, redondeo por comercializadora, periodos horarios 3.0TD/6.1TD.
-- **Fuera de esta entrega:** Django/Celery/PostgreSQL, ingesta horaria, llamada real al LLM, informe PDF, panel.
+- **Fuera de esta entrega:** Django/Celery/PostgreSQL, lectores CSV por distribuidora, conector de precios, llamada real al LLM, informe PDF, panel.
 - **Sin repositorio git:** la carpeta no lo es; `git init` cuando quieras.
+
+- **Ingesta horaria (#2):** el formato interno es CSV `instante,kwh,kvarh,tipo` con instante ISO 8601 con desfase UTC. Los valores negativos se aceptan (exportación o compensación): VERIFICAR la regla con datos reales. El parámetro `reader` del seam llega con los lectores por distribuidora.

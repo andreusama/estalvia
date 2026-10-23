@@ -61,11 +61,12 @@ def test_ida_y_vuelta_madrid_utc_sin_perdida():
     ini, n = dia_local(2026, 10, 25)
     for x in ingest_hourly(csv_horas(ini, n)):
         assert x.instante_utc.astimezone(MAD) == x.instante_local
+        assert x.instante_local.utcoffset() == x.instante_local.astimezone(MAD).utcoffset()
         assert x.instante_local.astimezone(timezone.utc) == x.instante_utc
 
 
 def test_cantidades_son_decimal_exactos():
-    ini, n = dia_local(2026, 6, 10)
+    ini, _ = dia_local(2026, 6, 10)
     x = ingest_hourly(csv_horas(ini, 1, kwh="0.1", kvarh="0.30"))[0]
     assert isinstance(x.kwh, D) and isinstance(x.kvarh, D)
     assert x.kwh + D("0.2") == D("0.3")  # con float daría 0.30000000000000004
@@ -74,7 +75,7 @@ def test_cantidades_son_decimal_exactos():
 @pytest.mark.parametrize("fila,fragmento", [
     ("2026-06-10T00:00:00,1,1,real", "sin desfase"),       # sin zona: no se supone
     ("2026-06-10T00:00:00+02:00,abc,1,real", "kwh"),
-    ("2026-06-10T00:00:00+02:00,-1,1,real", "kwh"),
+    ("2026-06-10T00:00:00+02:00,NaN,1,real", "kwh"),
     ("2026-06-10T00:00:00+02:00,1,1,dudosa", "tipo"),
     ("ayer,1,1,real", "ISO 8601"),
 ])
@@ -94,3 +95,9 @@ def test_instante_duplicado_se_rechaza():
     fila = csv_horas(ini, 1).decode().splitlines()[1]
     with pytest.raises(IngestError, match="duplicad"):
         ingest_hourly(("instante,kwh,kvarh,tipo\n" + fila + "\n" + fila + "\n").encode())
+
+
+def test_valores_negativos_no_se_rechazan_porque_la_regla_no_esta_decidida():
+    # Exportación neta o compensación de reactiva pueden dar negativos: no se inventa la regla.
+    ini, _ = dia_local(2026, 6, 10)
+    assert ingest_hourly(csv_horas(ini, 1, kwh="-0.4"))[0].kwh == D("-0.4")
