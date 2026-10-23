@@ -1,0 +1,11 @@
+# Financiación del bono social repercutida por la comercializadora en cada factura. Escrito a mano.
+rules:
+  - id: BONO-SOCIAL-COMERCIALIZACION-2026-07
+    kind: bono_social_eur_cups_anio
+    value: "9.011295"
+    unit: "EUR/CUPS/año"
+    valid_from: 2026-07-01
+    source: "Orden TED/634/2026, de 17 de junio (BOE-A-2026-13759), valor unitario d) de comercialización: 9,011295 euros/CUPS. Aplicable desde la liquidación 7 de 2026; la factura de referencia lo aplica desde julio de 2026."
+verificar:
+  - "Valores anteriores de enero a junio de 2026 y de 2025: la factura de referencia cita 0,019121225 EUR/día (Orden TED/1524/2025) y 0,01274243 EUR/día (RDL 8/2023) como importes diarios, pero no se han verificado en el BOE y no se cargan; el motor falla con MissingRuleError para esas fechas."
+  - "Confirmar el día exacto de inicio con el calendario de liquidaciones (liquidación 7 de 2026)."

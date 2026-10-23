@@ -13,8 +13,8 @@ from pathlib import Path
 
 import yaml
 
-TARIFAS = {"3.0TD": "3.0 TD", "6.1TD": "6.1 TD"}
-SEGMENTO = {"3.0TD": "2", "6.1TD": "3"}  # RD 148/2021 art. 3.2: 1=2.0TD 2=3.0TD 3=6.1TD ...
+TARIFAS = {"2.0TD": "2.0 TD", "3.0TD": "3.0 TD", "6.1TD": "6.1 TD"}
+SEGMENTO = {"2.0TD": "1", "3.0TD": "2", "6.1TD": "3"}  # RD 148/2021 art. 3.2: 1=2.0TD 2=3.0TD 3=6.1TD ...
 PER = ["P1", "P2", "P3", "P4", "P5", "P6"]
 
 
@@ -63,11 +63,13 @@ def peajes(year, id_, desde, hasta, src):
     for tar, lab in TARIFAS.items():
         for i, p in enumerate(PER):
             v = num(pot[lab][i])
-            rules.append(rule(f"PEAJE-POT-{tar}-{p}-{year}", "peaje_potencia_eur_kw_anio", tar, p, v,
-                              "EUR/kW/año", desde, hasta, src))
+            if v is not None:  # 2.0TD solo tiene 2 periodos de potencia y 3 de energía
+                rules.append(rule(f"PEAJE-POT-{tar}-{p}-{year}", "peaje_potencia_eur_kw_anio", tar, p, v,
+                                  "EUR/kW/año", desde, hasta, src))
             v = num(ene[lab][i])
-            rules.append(rule(f"PEAJE-ENE-{tar}-{p}-{year}", "peaje_energia_eur_kwh", tar, p, v,
-                              "EUR/kWh", desde, hasta, src))
+            if v is not None:
+                rules.append(rule(f"PEAJE-ENE-{tar}-{p}-{year}", "peaje_energia_eur_kwh", tar, p, v,
+                                  "EUR/kWh", desde, hasta, src))
     return tbs, rules
 
 

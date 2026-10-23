@@ -1,5 +1,23 @@
 # Generado por scripts/build_rules_from_boe.py desde el XML oficial del BOE. No editar a mano.
 rules:
+- id: CARGO-POT-2.0TD-P1-2025
+  kind: cargo_potencia_eur_kw_anio
+  tariff: 2.0TD
+  period: P1
+  value: '3.971618'
+  unit: EUR/kW/año
+  valid_from: '2025-01-01'
+  source: Orden TED/1487/2024, BOE-A-2024-27289 (cargos 2025) (segmento tarifario 1 = 2.0TD, RD 148/2021 art. 3.2)
+  valid_to: '2025-12-31'
+- id: CARGO-POT-2.0TD-P2-2025
+  kind: cargo_potencia_eur_kw_anio
+  tariff: 2.0TD
+  period: P2
+  value: '0.255423'
+  unit: EUR/kW/año
+  valid_from: '2025-01-01'
+  source: Orden TED/1487/2024, BOE-A-2024-27289 (cargos 2025) (segmento tarifario 1 = 2.0TD, RD 148/2021 art. 3.2)
+  valid_to: '2025-12-31'
 - id: CARGO-POT-3.0TD-P1-2025
   kind: cargo_potencia_eur_kw_anio
   tariff: 3.0TD
@@ -108,6 +126,33 @@ rules:
   valid_from: '2025-01-01'
   source: Orden TED/1487/2024, BOE-A-2024-27289 (cargos 2025) (segmento tarifario 3 = 6.1TD, RD 148/2021 art. 3.2)
   valid_to: '2025-12-31'
+- id: CARGO-ENE-2.0TD-P1-2025
+  kind: cargo_energia_eur_kwh
+  tariff: 2.0TD
+  period: P1
+  value: '0.058305'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Orden TED/1487/2024, BOE-A-2024-27289 (cargos 2025) (segmento tarifario 1 = 2.0TD, RD 148/2021 art. 3.2)
+  valid_to: '2025-12-31'
+- id: CARGO-ENE-2.0TD-P2-2025
+  kind: cargo_energia_eur_kwh
+  tariff: 2.0TD
+  period: P2
+  value: '0.011661'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Orden TED/1487/2024, BOE-A-2024-27289 (cargos 2025) (segmento tarifario 1 = 2.0TD, RD 148/2021 art. 3.2)
+  valid_to: '2025-12-31'
+- id: CARGO-ENE-2.0TD-P3-2025
+  kind: cargo_energia_eur_kwh
+  tariff: 2.0TD
+  period: P3
+  value: '0.002915'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Orden TED/1487/2024, BOE-A-2024-27289 (cargos 2025) (segmento tarifario 1 = 2.0TD, RD 148/2021 art. 3.2)
+  valid_to: '2025-12-31'
 - id: CARGO-ENE-3.0TD-P1-2025
   kind: cargo_energia_eur_kwh
   tariff: 3.0TD
@@ -215,6 +260,24 @@ rules:
   unit: EUR/kWh
   valid_from: '2025-01-01'
   source: Orden TED/1487/2024, BOE-A-2024-27289 (cargos 2025) (segmento tarifario 3 = 6.1TD, RD 148/2021 art. 3.2)
+  valid_to: '2025-12-31'
+- id: CAPAC-2.0TD-P1-2025
+  kind: pago_capacidad_eur_kwh
+  tariff: 2.0TD
+  period: P1
+  value: '0.000844'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Orden TED/1487/2024, BOE-A-2024-27289 (cargos 2025) (segmento tarifario 1 = 2.0TD, RD 148/2021 art. 3.2)
+  valid_to: '2025-12-31'
+- id: CAPAC-2.0TD-P2-2025
+  kind: pago_capacidad_eur_kwh
+  tariff: 2.0TD
+  period: P2
+  value: '0.00014'
+  unit: EUR/kWh
+  valid_from: '2025-01-01'
+  source: Orden TED/1487/2024, BOE-A-2024-27289 (cargos 2025) (segmento tarifario 1 = 2.0TD, RD 148/2021 art. 3.2)
   valid_to: '2025-12-31'
 - id: CAPAC-3.0TD-P1-2025
   kind: pago_capacidad_eur_kwh

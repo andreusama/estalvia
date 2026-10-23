@@ -88,3 +88,36 @@ def test_ie_min_por_uso_en_motor():
     # con reglas reales faltaría la regla de energía contratada: debe fallar claro, sin valor por defecto
     with pytest.raises(MissingRuleError):
         calcular_factura(sp, Lecturas({"P1": D(10)}), RS, Periodo(date(2026, 6, 1), date(2026, 6, 30)))
+
+
+# --- 2.0TD: 3 periodos de energía y 2 de potencia (Circular 3/2020 art. 7.3 y 7.4) ---
+def test_2_0td_energia_tres_periodos():
+    jueves = date(2026, 9, 10)
+    assert [CAL.periodo_energia_2_0td(jueves, h) for h in (3, 7, 8, 9, 10, 13, 14, 17, 18, 21, 22, 23)] == [
+        "P3", "P3", "P2", "P2", "P1", "P1", "P2", "P2", "P1", "P1", "P2", "P2"]
+
+
+def test_2_0td_fines_de_semana_y_festivos_nacionales_son_valle():
+    assert {CAL.periodo_energia_2_0td(date(2026, 9, 12), h) for h in range(24)} == {"P3"}  # sábado
+    assert {CAL.periodo_energia_2_0td(date(2026, 10, 12), h) for h in range(24)} == {"P3"}  # lunes festivo
+    # festivo solo catalán (Diada, viernes): día normal
+    assert CAL.periodo_energia_2_0td(date(2026, 9, 11), 10) == "P1"
+
+
+def test_2_0td_potencia_punta_es_p1_mas_p2_y_valle_es_p3():
+    jueves = date(2026, 9, 10)
+    assert [CAL.periodo_potencia_2_0td(jueves, h) for h in (3, 7, 8, 10, 23)] == ["P2", "P2", "P1", "P1", "P1"]
+    assert CAL.periodo_potencia_2_0td(date(2026, 9, 12), 12) == "P2"
+
+
+def test_2_0td_reglas_cargadas_con_los_periodos_que_existen():
+    assert RS.find("peaje_potencia_eur_kw_anio", D26, "2.0TD", "P1").value == D("23.324952")
+    assert RS.find("cargo_energia_eur_kwh", D26, "2.0TD", "P3").value == D("0.003215")
+    with pytest.raises(MissingRuleError):  # 2.0TD no tiene P3 de potencia
+        RS.find("peaje_potencia_eur_kw_anio", D26, "2.0TD", "P3")
+
+
+def test_bono_social_solo_desde_julio_2026_y_falla_antes():
+    assert RS.find("bono_social_eur_cups_anio", date(2026, 9, 15)).value == D("9.011295")
+    with pytest.raises(MissingRuleError):
+        RS.find("bono_social_eur_cups_anio", date(2026, 6, 30))

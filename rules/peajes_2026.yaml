@@ -1,5 +1,45 @@
 # Generado por scripts/build_rules_from_boe.py desde el XML oficial del BOE. No editar a mano.
 rules:
+- id: PEAJE-POT-2.0TD-P1-2026
+  kind: peaje_potencia_eur_kw_anio
+  tariff: 2.0TD
+  period: P1
+  value: '23.324952'
+  unit: EUR/kW/año
+  valid_from: '2026-01-01'
+  source: Resolución CNMC 18/12/2025, BOE-A-2025-26348 (peajes T&D 2026)
+- id: PEAJE-ENE-2.0TD-P1-2026
+  kind: peaje_energia_eur_kwh
+  tariff: 2.0TD
+  period: P1
+  value: '0.033261'
+  unit: EUR/kWh
+  valid_from: '2026-01-01'
+  source: Resolución CNMC 18/12/2025, BOE-A-2025-26348 (peajes T&D 2026)
+- id: PEAJE-POT-2.0TD-P2-2026
+  kind: peaje_potencia_eur_kw_anio
+  tariff: 2.0TD
+  period: P2
+  value: '0.443770'
+  unit: EUR/kW/año
+  valid_from: '2026-01-01'
+  source: Resolución CNMC 18/12/2025, BOE-A-2025-26348 (peajes T&D 2026)
+- id: PEAJE-ENE-2.0TD-P2-2026
+  kind: peaje_energia_eur_kwh
+  tariff: 2.0TD
+  period: P2
+  value: '0.016409'
+  unit: EUR/kWh
+  valid_from: '2026-01-01'
+  source: Resolución CNMC 18/12/2025, BOE-A-2025-26348 (peajes T&D 2026)
+- id: PEAJE-ENE-2.0TD-P3-2026
+  kind: peaje_energia_eur_kwh
+  tariff: 2.0TD
+  period: P3
+  value: '0.000077'
+  unit: EUR/kWh
+  valid_from: '2026-01-01'
+  source: Resolución CNMC 18/12/2025, BOE-A-2025-26348 (peajes T&D 2026)
 - id: PEAJE-POT-3.0TD-P1-2026
   kind: peaje_potencia_eur_kw_anio
   tariff: 3.0TD
@@ -192,6 +232,14 @@ rules:
   unit: EUR/kWh
   valid_from: '2026-01-01'
   source: Resolución CNMC 18/12/2025, BOE-A-2025-26348 (peajes T&D 2026)
+- id: EXC45-2.0TD-P1-2026
+  kind: exceso_potencia_tepp45_eur_kw_dia
+  tariff: 2.0TD
+  period: P1
+  value: '0.279426'
+  unit: EUR/kW/día
+  valid_from: '2026-01-01'
+  source: Resolución CNMC 18/12/2025, BOE-A-2025-26348 (peajes T&D 2026), Anexo II
 - id: EXC45-3.0TD-P1-2026
   kind: exceso_potencia_tepp45_eur_kw_dia
   tariff: 3.0TD
@@ -205,6 +253,14 @@ rules:
   tariff: 6.1TD
   period: P1
   value: '0.275735'
+  unit: EUR/kW/día
+  valid_from: '2026-01-01'
+  source: Resolución CNMC 18/12/2025, BOE-A-2025-26348 (peajes T&D 2026), Anexo II
+- id: EXC45-2.0TD-P2-2026
+  kind: exceso_potencia_tepp45_eur_kw_dia
+  tariff: 2.0TD
+  period: P2
+  value: '0.005316'
   unit: EUR/kW/día
   valid_from: '2026-01-01'
   source: Resolución CNMC 18/12/2025, BOE-A-2025-26348 (peajes T&D 2026), Anexo II
@@ -288,6 +344,14 @@ rules:
   unit: EUR/kW/día
   valid_from: '2026-01-01'
   source: Resolución CNMC 18/12/2025, BOE-A-2025-26348 (peajes T&D 2026), Anexo II
+- id: EXC123-2.0TD-P1-2026
+  kind: exceso_potencia_tepp123_eur_kw
+  tariff: 2.0TD
+  period: P1
+  value: '2.968850'
+  unit: EUR/kW
+  valid_from: '2026-01-01'
+  source: Resolución CNMC 18/12/2025, BOE-A-2025-26348 (peajes T&D 2026), Anexo II
 - id: EXC123-3.0TD-P1-2026
   kind: exceso_potencia_tepp123_eur_kw
   tariff: 3.0TD
@@ -301,6 +365,14 @@ rules:
   tariff: 6.1TD
   period: P1
   value: '3.431797'
+  unit: EUR/kW
+  valid_from: '2026-01-01'
+  source: Resolución CNMC 18/12/2025, BOE-A-2025-26348 (peajes T&D 2026), Anexo II
+- id: EXC123-2.0TD-P2-2026
+  kind: exceso_potencia_tepp123_eur_kw
+  tariff: 2.0TD
+  period: P2
+  value: '0.056473'
   unit: EUR/kW
   valid_from: '2026-01-01'
   source: Resolución CNMC 18/12/2025, BOE-A-2025-26348 (peajes T&D 2026), Anexo II

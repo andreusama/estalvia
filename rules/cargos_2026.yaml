@@ -1,5 +1,21 @@
 # Generado por scripts/build_rules_from_boe.py desde el XML oficial del BOE. No editar a mano.
 rules:
+- id: CARGO-POT-2.0TD-P1-2026
+  kind: cargo_potencia_eur_kw_anio
+  tariff: 2.0TD
+  period: P1
+  value: '4.379461'
+  unit: EUR/kW/año
+  valid_from: '2026-01-01'
+  source: Orden TED/1524/2025, BOE-A-2025-26705 (cargos 2026) (segmento tarifario 1 = 2.0TD, RD 148/2021 art. 3.2)
+- id: CARGO-POT-2.0TD-P2-2026
+  kind: cargo_potencia_eur_kw_anio
+  tariff: 2.0TD
+  period: P2
+  value: '0.281653'
+  unit: EUR/kW/año
+  valid_from: '2026-01-01'
+  source: Orden TED/1524/2025, BOE-A-2025-26705 (cargos 2026) (segmento tarifario 1 = 2.0TD, RD 148/2021 art. 3.2)
 - id: CARGO-POT-3.0TD-P1-2026
   kind: cargo_potencia_eur_kw_anio
   tariff: 3.0TD
@@ -96,6 +112,30 @@ rules:
   unit: EUR/kW/año
   valid_from: '2026-01-01'
   source: Orden TED/1524/2025, BOE-A-2025-26705 (cargos 2026) (segmento tarifario 3 = 6.1TD, RD 148/2021 art. 3.2)
+- id: CARGO-ENE-2.0TD-P1-2026
+  kind: cargo_energia_eur_kwh
+  tariff: 2.0TD
+  period: P1
+  value: '0.064292'
+  unit: EUR/kWh
+  valid_from: '2026-01-01'
+  source: Orden TED/1524/2025, BOE-A-2025-26705 (cargos 2026) (segmento tarifario 1 = 2.0TD, RD 148/2021 art. 3.2)
+- id: CARGO-ENE-2.0TD-P2-2026
+  kind: cargo_energia_eur_kwh
+  tariff: 2.0TD
+  period: P2
+  value: '0.012858'
+  unit: EUR/kWh
+  valid_from: '2026-01-01'
+  source: Orden TED/1524/2025, BOE-A-2025-26705 (cargos 2026) (segmento tarifario 1 = 2.0TD, RD 148/2021 art. 3.2)
+- id: CARGO-ENE-2.0TD-P3-2026
+  kind: cargo_energia_eur_kwh
+  tariff: 2.0TD
+  period: P3
+  value: '0.003215'
+  unit: EUR/kWh
+  valid_from: '2026-01-01'
+  source: Orden TED/1524/2025, BOE-A-2025-26705 (cargos 2026) (segmento tarifario 1 = 2.0TD, RD 148/2021 art. 3.2)
 - id: CARGO-ENE-3.0TD-P1-2026
   kind: cargo_energia_eur_kwh
   tariff: 3.0TD
@@ -192,6 +232,22 @@ rules:
   unit: EUR/kWh
   valid_from: '2026-01-01'
   source: Orden TED/1524/2025, BOE-A-2025-26705 (cargos 2026) (segmento tarifario 3 = 6.1TD, RD 148/2021 art. 3.2)
+- id: CAPAC-2.0TD-P1-2026
+  kind: pago_capacidad_eur_kwh
+  tariff: 2.0TD
+  period: P1
+  value: '0.000800'
+  unit: EUR/kWh
+  valid_from: '2026-01-01'
+  source: Orden TED/1524/2025, BOE-A-2025-26705 (cargos 2026) (segmento tarifario 1 = 2.0TD, RD 148/2021 art. 3.2)
+- id: CAPAC-2.0TD-P2-2026
+  kind: pago_capacidad_eur_kwh
+  tariff: 2.0TD
+  period: P2
+  value: '0.000133'
+  unit: EUR/kWh
+  valid_from: '2026-01-01'
+  source: Orden TED/1524/2025, BOE-A-2025-26705 (cargos 2026) (segmento tarifario 1 = 2.0TD, RD 148/2021 art. 3.2)
 - id: CAPAC-3.0TD-P1-2026
   kind: pago_capacidad_eur_kwh
   tariff: 3.0TD

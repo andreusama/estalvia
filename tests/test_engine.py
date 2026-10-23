@@ -112,3 +112,43 @@ def test_float_rechazado():
 
 def test_hash_estable():
     assert RS.hash == RuleSet.from_yaml(FIX).hash
+
+
+def test_bono_social_entra_en_la_base_y_se_prorratea_por_dias():
+    # 36,5 EUR/año / 365 * 31 días = 3,10. Base 413,10; IE 5 % = 20,655 -> 20,66; sin IVA 433,76; total 477,14
+    d = calc(s=site(aplica_bono_social=True))
+    imp = {l.concepto: l.importe for l in d.lineas}
+    assert imp["bono social"] == D("3.10") and imp["impuesto electricidad"] == D("20.66")
+    assert d.total == D("477.14") and sum(l.importe for l in d.lineas) == d.total
+
+
+def test_sin_aplicar_bono_social_no_hay_linea_ni_se_busca_la_regla():
+    assert "bono social" not in {l.concepto for l in calc().lineas}
+
+
+def test_alquiler_declarado_en_importe_fijo():
+    d = calc(s=site(alquiler_importe=D("0.85")))
+    assert {l.concepto: l.importe for l in d.lineas}["alquiler equipos"] == D("0.85")
+
+
+def test_alquiler_por_dia_e_importe_a_la_vez_es_ambiguo():
+    with pytest.raises(MissingDataError, match="alquiler"):
+        calc(s=site(alquiler_eur_dia=D("0.10"), alquiler_importe=D("0.85")))
+
+
+def test_desglose_regulado_informativo_no_altera_el_total():
+    from estalvia.engine.calc import calcular_regulado
+    per = Periodo(date(2025, 3, 1), date(2025, 3, 31))
+    lineas = calcular_regulado(site(), Lecturas({"P1": D(1000)}), RS, per)
+    imp = {l.concepto: l.importe for l in lineas}
+    # 100 kW * 73 / 365 * 31 = 620,00 ; * 36,5 -> 310,00 ; 1000 kWh * 0,02 = 20,00 ; * 0,01 = 10,00
+    assert imp == {"peaje potencia P1": D("620.00"), "cargo potencia P1": D("310.00"),
+                   "peaje energia P1": D("20.00"), "cargo energia P1": D("10.00")}
+    assert all(l.regla_id and l.fuente for l in lineas)
+    assert calc(kwh1=D(1000)).total == D("473.55")  # el total facturado no cambia
+
+
+def test_desglose_regulado_sin_regla_falla_claro():
+    from estalvia.engine.calc import calcular_regulado
+    with pytest.raises(MissingRuleError):
+        calcular_regulado(site(), Lecturas({"P2": D(10)}), RS, Periodo(date(2025, 3, 1), date(2025, 3, 31)))

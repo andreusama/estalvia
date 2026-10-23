@@ -14,7 +14,8 @@ from .errors import MissingDataError
 
 
 class Calendario:
-    def __init__(self, periodos: dict, festivos: dict):
+    def __init__(self, periodos: dict, festivos: dict, periodos_2_0td: dict | None = None):
+        self._p20 = periodos_2_0td
         self._temporada = {m: t for t, ms in periodos["temporadas"].items() for m in ms}
         self._horas = periodos["horas"]
         self._festivos = {
@@ -26,7 +27,7 @@ class Calendario:
     def desde_directorio(cls, d: str | Path) -> Calendario:
         d = Path(d)
         load = lambda n: yaml.safe_load((d / n).read_text(encoding="utf-8"))  # noqa: E731
-        return cls(load("periodos_horarios.yaml"), load("festivos.yaml"))
+        return cls(load("periodos_horarios.yaml"), load("festivos.yaml"), load("periodos_horarios_2_0td.yaml"))
 
     def tipo_dia(self, d: date) -> str:
         if d.year not in self._anios:
@@ -34,6 +35,29 @@ class Calendario:
         if d.weekday() >= 5 or d in self._festivos:
             return "D"
         return {"alta": "A", "media_alta": "B", "media": "B1", "baja": "C"}[self._temporada[d.month]]
+
+    def _es_dia_valle(self, d: date) -> bool:
+        if d.year not in self._anios:
+            raise MissingDataError(f"sin calendario de festivos para {d.year}")
+        return d.weekday() >= 5 or d in self._festivos
+
+    def periodo_energia_2_0td(self, d: date, hora: int) -> str:
+        """Periodo de energía (P1 punta, P2 llano, P3 valle) del peaje 2.0TD, Península."""
+        if self._p20 is None:
+            raise MissingDataError("sin tabla de periodos 2.0TD")
+        tabla = self._p20["energia_festivo" if self._es_dia_valle(d) else "energia_laborable"]
+        for p, tramos in tabla.items():
+            if any(a <= hora < b for a, b in tramos):
+                return p
+        raise MissingDataError(f"hora sin periodo 2.0TD: {d} {hora}")
+
+    def periodo_potencia_2_0td(self, d: date, hora: int) -> str:
+        """Periodo de potencia 2.0TD: P1 punta (= P1+P2 de energía) y P2 valle (= P3 de energía)."""
+        energia = self.periodo_energia_2_0td(d, hora)
+        for p, equivale in self._p20["potencia_equivale"].items():
+            if energia in equivale:
+                return p
+        raise MissingDataError(f"periodo de energía sin equivalente de potencia: {energia}")
 
     def periodo(self, d: date, hora: int) -> str:
         """`hora` = hora local de inicio (0-23). En días de 23/25 horas el llamante resuelve la hora local."""
