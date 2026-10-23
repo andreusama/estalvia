@@ -14,6 +14,8 @@ from decimal import Decimal, InvalidOperation
 from typing import Literal
 from zoneinfo import ZoneInfo
 
+from estalvia.engine.periods import Calendario
+
 MADRID = ZoneInfo("Europe/Madrid")
 TIPOS = ("real", "estimada")
 COLUMNAS = ("instante", "kwh", "kvarh", "tipo")
@@ -50,9 +52,37 @@ class Calidad:
 
 
 @dataclass(frozen=True)
+class TotalPeriodo:
+    kwh: Decimal
+    kvarh: Decimal
+
+
+@dataclass(frozen=True)
 class Ingesta:
     lecturas: list[Lectura]
     calidad: Calidad
+
+    def etiquetadas(self, calendario: Calendario) -> list[tuple[Lectura, str]]:
+        """Cada lectura con su periodo tarifario P1-P6 (península, 3.0TD y 6.xTD)."""
+        return self._etiquetar(self.lecturas, calendario)
+
+    @staticmethod
+    def _etiquetar(lecturas: list[Lectura], calendario: Calendario) -> list[tuple[Lectura, str]]:
+        return [(x, calendario.periodo(x.instante_local.date(), x.instante_local.hour)) for x in lecturas]
+
+    def totales_por_periodo(self, calendario: Calendario, desde: datetime | None = None,
+                            hasta: datetime | None = None) -> dict[str, TotalPeriodo]:
+        """kWh y kVArh por periodo en [desde, hasta); sin límites, todas las lecturas."""
+        for limite in (desde, hasta):
+            if limite is not None and limite.tzinfo is None:
+                raise ValueError("el rango debe llevar zona horaria")
+        en_rango = [x for x in self.lecturas
+                    if not (desde and x.instante_utc < desde) and not (hasta and x.instante_utc >= hasta)]
+        totales: dict[str, TotalPeriodo] = {}
+        for lectura, periodo in self._etiquetar(en_rango, calendario):
+            previo = totales.get(periodo, TotalPeriodo(Decimal(0), Decimal(0)))
+            totales[periodo] = TotalPeriodo(previo.kwh + lectura.kwh, previo.kvarh + lectura.kvarh)
+        return totales
 
 
 def _mes_siguiente(anio: int, mes: int) -> tuple[int, int]:
