@@ -63,12 +63,8 @@ class Ingesta:
     calidad: Calidad
 
     def etiquetadas(self, calendario: Calendario) -> list[tuple[Lectura, str]]:
-        """Cada lectura con su periodo tarifario P1-P6 (península, 3.0TD y 6.xTD)."""
-        return self._etiquetar(self.lecturas, calendario)
-
-    @staticmethod
-    def _etiquetar(lecturas: list[Lectura], calendario: Calendario) -> list[tuple[Lectura, str]]:
-        return [(x, calendario.periodo(x.instante_local.date(), x.instante_local.hour)) for x in lecturas]
+        """Cada lectura con su periodo tarifario P1-P6 (solo península, 3.0TD y 6.xTD)."""
+        return _etiquetar(self.lecturas, calendario)
 
     def totales_por_periodo(self, calendario: Calendario, desde: datetime | None = None,
                             hasta: datetime | None = None) -> dict[str, TotalPeriodo]:
@@ -76,13 +72,20 @@ class Ingesta:
         for limite in (desde, hasta):
             if limite is not None and limite.tzinfo is None:
                 raise ValueError("el rango debe llevar zona horaria")
-        en_rango = [x for x in self.lecturas
-                    if not (desde and x.instante_utc < desde) and not (hasta and x.instante_utc >= hasta)]
+        if desde is not None and hasta is not None and desde >= hasta:
+            raise ValueError("el rango es vacío o inverso: desde debe ser anterior a hasta")
+        inicio = desde or datetime.min.replace(tzinfo=timezone.utc)
+        fin = hasta or datetime.max.replace(tzinfo=timezone.utc)
+        en_rango = [lectura for lectura in self.lecturas if inicio <= lectura.instante_utc < fin]
         totales: dict[str, TotalPeriodo] = {}
-        for lectura, periodo in self._etiquetar(en_rango, calendario):
-            previo = totales.get(periodo, TotalPeriodo(Decimal(0), Decimal(0)))
-            totales[periodo] = TotalPeriodo(previo.kwh + lectura.kwh, previo.kvarh + lectura.kvarh)
+        for lectura, periodo in _etiquetar(en_rango, calendario):
+            acumulado = totales.get(periodo, TotalPeriodo(Decimal(0), Decimal(0)))
+            totales[periodo] = TotalPeriodo(acumulado.kwh + lectura.kwh, acumulado.kvarh + lectura.kvarh)
         return totales
+
+
+def _etiquetar(lecturas: list[Lectura], calendario: Calendario) -> list[tuple[Lectura, str]]:
+    return [(x, calendario.periodo(x.instante_local.date(), x.instante_local.hour)) for x in lecturas]
 
 
 def _mes_siguiente(anio: int, mes: int) -> tuple[int, int]:

@@ -85,3 +85,29 @@ def test_lecturas_fuera_del_rango_no_exigen_calendario_de_su_ano():
     ing = ingest_hourly(csv_dias(2026, 12, 30, dias=3))
     t = ing.totales_por_periodo(CAL, desde=datetime(2026, 12, 30, tzinfo=MAD), hasta=datetime(2026, 12, 31, tzinfo=MAD))
     assert sum(v.kwh for v in t.values()) == D("24")
+
+
+@pytest.mark.parametrize("dia,esperado", [
+    # tipo B (marzo): P2 9-14 y 18-22, P3 8-9, 14-18 y 22-24, P6 0-8
+    ((2026, 3, 11), {3: "P6", 8: "P3", 10: "P2", 15: "P3", 19: "P2", 23: "P3"}),
+    # tipo B1 (junio): P3 9-14 y 18-22, P4 8-9, 14-18 y 22-24
+    ((2026, 6, 10), {3: "P6", 8: "P4", 10: "P3", 15: "P4", 19: "P3", 23: "P4"}),
+    # tipo C (mayo): P4 9-14 y 18-22, P5 8-9, 14-18 y 22-24
+    ((2026, 5, 13), {3: "P6", 8: "P5", 10: "P4", 15: "P5", 19: "P4", 23: "P5"}),
+])
+def test_horas_de_los_tipos_b_b1_y_c(dia, esperado):
+    horas = {x.instante_local.hour: p for x, p in ingest_hourly(csv_dias(*dia)).etiquetadas(CAL)}
+    assert {h: horas[h] for h in esperado} == esperado
+
+
+def test_reyes_es_tipo_d_aunque_sea_laborable():
+    assert set(ingest_hourly(csv_dias(2026, 1, 6)).totales_por_periodo(CAL)) == {"P6"}  # martes
+
+
+@pytest.mark.parametrize("desde,hasta", [
+    (datetime(2026, 1, 14, 10, tzinfo=MAD), datetime(2026, 1, 14, 10, tzinfo=MAD)),
+    (datetime(2026, 1, 14, 12, tzinfo=MAD), datetime(2026, 1, 14, 10, tzinfo=MAD)),
+])
+def test_rango_vacio_o_invertido_se_rechaza(desde, hasta):
+    with pytest.raises(ValueError, match="desde"):
+        ingest_hourly(csv_dias(2026, 1, 14)).totales_por_periodo(CAL, desde=desde, hasta=hasta)
