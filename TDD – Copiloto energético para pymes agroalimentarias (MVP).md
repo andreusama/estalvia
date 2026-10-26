@@ -168,7 +168,7 @@ Campos mínimos del esquema de extracción:
 
 - Aceptar el CSV que descargan los clientes de su distribuidora (Iberdrola, Endesa, Viesgo, EDP y otras) con un lector por formato, y un formato interno normalizado.
 - Tratar los cambios de hora (días de 23 y 25 horas), los huecos y las lecturas estimadas frente a las reales. Un hueco nunca se rellena en silencio: se marca y se informa.
-- La descarga automática desde Datadis queda para la fase 6 y exige autorización expresa del titular.
+- La descarga automática desde Datadis queda para la fase 7 y exige autorización expresa del titular.
 
 **6.3 Precios de mercado**
 
@@ -280,7 +280,7 @@ El modelo de lenguaje hace dos trabajos, leer facturas y explicar resultados, y 
 1. **Sin cálculo:** toda cifra del informe viene de campos estructurados. Un comprobador automático extrae los números del texto generado y falla si alguno no existe en los datos.
 2. **Sin normativa de memoria:** el modelo no aporta reglas ni precios. Solo se usan los del `RuleSet`.
 3. **Esquemas estrictos:** respuesta en JSON validado; si no valida, se reintenta una vez y después pasa a revisión humana.
-4. **Baja variabilidad:** parámetros de generación conservadores y versión del modelo fijada y registrada en cada análisis.
+4. **Baja variabilidad:** salida restringida a un esquema, comprobaciones deterministas sobre lo extraído, esfuerzo de razonamiento explícito y versión del modelo fijada y registrada en cada análisis (los parámetros de muestreo como `temperature` ya no existen en estos modelos).
 5. **Documentos como datos:** el contenido de un PDF nunca se trata como instrucciones (ver sección 12, inyección de instrucciones).
 6. **Sin acciones con efectos:** el modelo no tiene herramientas que envíen correos, modifiquen datos de clientes ni accedan a Internet.
 7. **Minimización:** antes de enviar texto al proveedor, la pasarela enmascara nombres, direcciones y NIF, y limita el CUPS a lo estrictamente necesario.
@@ -457,21 +457,22 @@ Valor propuesto, que debe decidir el abogado: borrar los ficheros originales a l
 
 ## 14. Plan de desarrollo por fases
 
-Son siete fases, y no se pasa a la siguiente hasta cumplir los criterios de aceptación de la anterior; la fase 1 empieza con la tarifa 2.0TD porque es más simple y permite validar con una factura propia.
+Son ocho fases (de la 0 a la 7), y no se pasa a la siguiente hasta cumplir los criterios de aceptación de la anterior; la fase 1 empieza con la tarifa 2.0TD porque es más simple y permite validar con una factura propia.
 
-&#91;embedded content: fases del desarrollo · 7 fases, 1 bifurcación\]
+&#91;embedded content: fases del desarrollo · 8 fases, 1 bifurcación\]
 
-Las fases 2 y 3 pueden avanzar en paralelo porque ambas dependen solo del motor de cálculo; el análisis necesita las dos.
+Las fases 2 y 3 pueden avanzar en paralelo porque ambas dependen solo del motor de cálculo; la fase 4 sigue a la 3 y el análisis necesita las fases 2 y 4.
 
 | Fase | Entregable | Criterios de aceptación | Depende de |
 | --- | --- | --- | --- |
 | 0. Preparación | Repositorio, integración continua, estructura del proyecto, las 8 skills de la sección 10, datos sintéticos y plan legal mínimo | Skills probadas con una tarea real pequeña; CI en verde; contrato de encargo y autorización redactados y revisados | Nada |
 | 1. Motor de cálculo | Reglas versionadas y cálculo de 2.0TD, después 3.0TD y 6.1TD | Reproduce las facturas de referencia dentro de la tolerancia (sección 7); cada regla con fuente y vigencia | Fase 0 |
 | 2. Datos horarios y precios | Lectores de CSV por distribuidora, normalización, conector de precios con caché | Casos de cambio de hora y huecos cubiertos; precios reproducibles con fecha de captura | Fase 1 |
-| 3. Extracción de facturas | Pasarela de IA, extracción con esquema, validaciones y pantalla de revisión | Acierto en campos críticos ≥ 98 % sobre 30 facturas; 0 casos de inyección que cambien un dato | Fase 1 |
-| 4. Análisis | Módulos A a E con método común y sensibilidad | Cada hallazgo con evidencia, intervalo y confianza; ahorro recalculado por el motor | Fases 2 y 3 |
-| 5. Informe y endurecimiento | Informe de una página, comprobador de cifras, revisión de seguridad y prueba de intrusión | Todas las cifras del informe existen en los datos; sin hallazgos críticos ni altos abiertos | Fase 4 |
-| 6. Piloto y seguimiento | 3 a 5 clientes piloto, comparación con facturas posteriores, descarga desde Datadis | Al menos 3 de 5 pilotos con ahorro estimado positivo y explicado; errores convertidos en casos de prueba | Fase 5 |
+| 3. Extracción de facturas | Pasarela de IA, enmascarado de datos personales, extracción con esquema y comprobaciones deterministas | Acierto en campos críticos ≥ 98 % sobre 30 facturas; 0 casos de inyección que cambien un dato | Fase 1 |
+| 4. Web y revisión | Aplicación web, subida de ficheros aislada y pantalla de revisión de facturas en estado Revisión | Una factura en Revisión se corrige y se valida sin tocar la base de datos a mano; subida de PDF aislada (sección 9) | Fase 3 |
+| 5. Análisis | Módulos A a E con método común y sensibilidad | Cada hallazgo con evidencia, intervalo y confianza; ahorro recalculado por el motor | Fases 2 y 4 |
+| 6. Informe y endurecimiento | Informe de una página, comprobador de cifras, revisión de seguridad y prueba de intrusión | Todas las cifras del informe existen en los datos; sin hallazgos críticos ni altos abiertos | Fase 5 |
+| 7. Piloto y seguimiento | 3 a 5 clientes piloto, comparación con facturas posteriores, descarga desde Datadis | Al menos 3 de 5 pilotos con ahorro estimado positivo y explicado; errores convertidos en casos de prueba | Fase 6 |
 
 **Reglas de trabajo del agente**
 
