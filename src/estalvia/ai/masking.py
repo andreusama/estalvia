@@ -42,7 +42,8 @@ _ETIQUETAS_CON_DOS_PUNTOS = "|".join([
     r"tel[eé]fono|tel[eè]fon|tel\.|telf\.?|m[oó]vil|m[òo]bil|fax",
     r"correo electr[oó]nico|correu electr[oò]nic|e-?mail",
     r"referencia catastral|refer[eè]ncia cadastral|referencia de pago",
-    r"contrato|contracte|(?<!total )(?<!importe )factura|contador|comptador",
+    r"(?:n[úu]mero de )?contra(?:to|cte)(?: de acceso| d['’]acc[eé]s)?",
+    r"(?<!total )(?<!importe )factura|contador|comptador",
 ])
 CON_DOS_PUNTOS = re.compile(
     rf"(?P<etiqueta>\b(?:{_ETIQUETAS_CON_DOS_PUNTOS})[ \t]*:[ \t]*)(?P<valor>\S.*?)(?=[ \t]{{3,}}|\t|$)",
@@ -50,12 +51,17 @@ CON_DOS_PUNTOS = re.compile(
 
 # Etiquetas con «nº»/«número»: el valor es una sola palabra y debe llevar algún dígito.
 _ETIQUETAS_CON_NUMERO = "|".join([
-    rf"(?:contrato|contracte)(?: de acceso| d'acc[eé]s| de suministro| de subministrament)?[ ]*{_NUM}",
+    rf"(?:contrato|contracte)(?: de acceso| d['’]acc[eé]s| de suministro| de subministrament)?[ ]*{_NUM}",
     rf"{_NUM}[ ]*de[ ]+(?:factura|contador|comptador|serie(?: del contador)?)",
     rf"factura[ ]*{_NUM}", rf"equipo de medida[ ]*{_NUM}",
 ])
 CON_NUMERO = re.compile(
     rf"(?P<etiqueta>\b(?:{_ETIQUETAS_CON_NUMERO})[ \t]*:?[ \t]*)(?P<valor>(?=\S*\d)\S+)", re.IGNORECASE)
+
+# «Lectures del comptador 123456789»: el número de serie del contador (6 o más dígitos seguidos).
+CON_COMPTADOR = re.compile(
+    r"(?P<etiqueta>\b(?:lectures del comptador|lecturas del contador)[ \t]*:?[ \t]*)(?P<valor>(?=\S*\d{6})\S+)",
+    re.IGNORECASE)
 
 _FECHA = re.compile(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b|\b\d{4}-\d{2}-\d{2}\b")
 _CON_UNIDAD = re.compile(r"\d[\d.,]*[ ]*(?:kwh|kw|kva|kvarh|€|eur|%)", re.IGNORECASE)
@@ -96,6 +102,7 @@ def enmascarar(texto: str, extra: list[str] | None = None, *, clave: bytes) -> s
     texto = IBAN.sub("[IBAN]", texto)
     texto = NIF.sub("[NIF]", texto)
     texto = CON_NUMERO.sub(_sustituir_valor, texto)
+    texto = CON_COMPTADOR.sub(_sustituir_valor, texto)
     texto = CON_DOS_PUNTOS.sub(_sustituir_valor, texto)
     texto = TRATAMIENTO.sub("[NOMBRE]", texto)
     texto = CODIGO_POSTAL_Y_POBLACION.sub("[DATO]", texto)

@@ -163,3 +163,25 @@ def test_token_cups_sin_clave_falla():
 def test_la_clave_debe_ser_bytes():
     with pytest.raises(TypeError, match="bytes"):
         enmascarar("x", clave="texto")
+
+
+@pytest.mark.parametrize("linea,secreto", [
+    ("Número de contracte d’accés: 000011112222", "000011112222"),
+    ("Número de contracte d'accés: 000011112222", "000011112222"),
+    ("Número de contrato de acceso: 000011112222", "000011112222"),
+    ("Contracte d’accés núm. 0000333344", "0000333344"),
+    ("Lectures del comptador 123456789", "123456789"),
+    ("Lecturas del contador 123456789", "123456789"),
+])
+def test_contrato_con_apostrofo_tipografico_y_numero_de_contador_se_enmascaran(linea, secreto):
+    assert secreto not in enmascarar(linea, clave=CLAVE)
+
+
+@pytest.mark.parametrize("linea", [
+    "Lectures del comptador P1 inicial 1000,5 final 1050,2",
+    "Lectures del comptador",
+    "Valor 0,123456789 €/dia",
+    "Telèfon d’emergències de la distribuïdora: 800 760 909",
+])
+def test_no_se_enmascaran_las_cifras_de_calculo_ni_los_datos_publicos_cercanos(linea):
+    assert enmascarar(linea, clave=CLAVE) == linea
