@@ -217,3 +217,13 @@ def test_estas_lineas_no_son_direcciones_y_no_se_tocan(texto):
 def test_la_cifra_junto_a_un_codigo_postal_se_conserva():
     salida = enmascarar("Total   31,00 €    08000, VILLAFICTICIA, BARCELONA", clave=CLAVE)
     assert "31,00 €" in salida
+
+
+def test_una_linea_de_calculo_con_palabra_de_via_no_se_enmascara():
+    for linea in ["Término de potencia Paseo 3,45 kW 1,00 €", "Cargo Plaza de toros 12 kWh 1.234,50   15,00 €",
+                  "Plaza   Total 31,00 €", "Paseo marítimo: 12,00 €"]:
+        assert enmascarar(linea, clave=b"clave-de-prueba-no-real") == linea
+
+
+def test_calle_sin_espacio_tras_la_barra_se_enmascara():
+    assert enmascarar("C/Falsa 12", clave=b"clave-de-prueba-no-real") == "[DIRECCION]"

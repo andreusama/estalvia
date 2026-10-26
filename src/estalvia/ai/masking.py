@@ -34,7 +34,17 @@ CODIGO_POSTAL_Y_POBLACION = re.compile(
 # Calle: abreviatura o tipo de vía con mayúscula inicial al comienzo de un tramo de línea (hasta 3 espacios o el fin).
 CALLE = re.compile(
     r"(?<![\w/])(?:CL|C/|Calle|CALLE|Carrer|CARRER|Avda\.?|AVDA\.?|Avenida|AVENIDA|Avinguda|AVINGUDA|Plaza|PLAZA"
-    r"|Plaça|PLAÇA|Paseo|PASEO|Passeig|PASSEIG)[ ]+\S.*?(?=[ ]{3,}|\t|$)", re.MULTILINE)
+    r"|Plaça|PLAÇA|Paseo|PASEO|Passeig|PASSEIG)(?:[ ]{1,2}|(?<=/))\S.*?(?=[ ]{3,}|\t|$)", re.MULTILINE)
+
+
+
+def _sustituir_calle(m: re.Match) -> str:
+    """Solo es dirección si lleva número y no parece una línea de cálculo (unidad, importe o «:»)."""
+    t = m.group(0)
+    if not re.search(r"\d", t) or _CON_UNIDAD.search(t) or ":" in t:
+        return t
+    return "[DIRECCION]"
+
 
 # Etiquetas cuyo valor es personal y que exigen «:» pegado a la etiqueta (castellano y catalán).
 _ETIQUETAS_CON_DOS_PUNTOS = "|".join([
@@ -114,7 +124,7 @@ def enmascarar(texto: str, extra: list[str] | None = None, *, clave: bytes) -> s
     texto = CON_COMPTADOR.sub(_sustituir_valor, texto)
     texto = CON_DOS_PUNTOS.sub(_sustituir_valor, texto)
     texto = EN_LINEA_SIGUIENTE.sub(_sustituir_valor, texto)
-    texto = CALLE.sub("[DIRECCION]", texto)
+    texto = CALLE.sub(_sustituir_calle, texto)
     texto = TRATAMIENTO.sub("[NOMBRE]", texto)
     texto = CODIGO_POSTAL_Y_POBLACION.sub("[DATO]", texto)
     texto = TELEFONO.sub("[TELEFONO]", texto)
