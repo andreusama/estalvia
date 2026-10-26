@@ -47,7 +47,7 @@ class Comparacion:
         return self.base.total - self.escenario.total
 
 
-def _limites(periodo: Periodo) -> tuple[datetime, datetime]:
+def limites_del_periodo(periodo: Periodo) -> tuple[datetime, datetime]:
     return (datetime.combine(periodo.inicio, time(), MADRID),
             datetime.combine(periodo.fin + timedelta(days=1), time(), MADRID))
 
@@ -55,7 +55,7 @@ def _limites(periodo: Periodo) -> tuple[datetime, datetime]:
 def consumo_por_periodo(site: SiteParams, ingesta: Ingesta, calendario: Calendario,
                         periodo: Periodo) -> dict[str, Decimal]:
     """kWh por periodo tarifario del periodo facturado. Falta alguna hora o hay consumo negativo: FaltaDato."""
-    desde, hasta = _limites(periodo)
+    desde, hasta = limites_del_periodo(periodo)
     utc = ZoneInfo("UTC")
     horas_esperadas = int((hasta.astimezone(utc) - desde.astimezone(utc)).total_seconds() // 3600)
     horas = sum(1 for x in ingesta.lecturas if desde <= x.instante_utc < hasta)

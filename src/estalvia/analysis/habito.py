@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
 
-from estalvia.analysis.nucleo import PrecioContrato, consumo_por_periodo, desglose
+from estalvia.analysis.nucleo import PrecioContrato, consumo_por_periodo, desglose, limites_del_periodo
 from estalvia.engine.calc import Desglose, Periodo, SiteParams
 from estalvia.engine.periods import Calendario
 from estalvia.engine.rules import RuleSet
@@ -39,24 +39,28 @@ class EvaluacionHabito:
     escenarios: dict[int, Desglose]
     confianza: Confianza
     meses_completos: int
-    dias_del_periodo: int
+    dias_periodo_facturado: int
 
     @property
     def ahorro(self) -> dict[int, Decimal]:
         return {pct: self.base.total - e.total for pct, e in self.escenarios.items()}
 
+    anual_es_orientativo = True  # siempre: es el ahorro de un periodo extrapolado; la interfaz debe decirlo
+
     @property
     def ahorro_anual_orientativo(self) -> dict[int, Decimal]:
         """Ahorro del periodo facturado extrapolado a 365 días. Solo orientativo: no mira otras estaciones."""
-        return {pct: (a * 365 / self.dias_del_periodo).quantize(CENT, ROUND_HALF_UP)
+        return {pct: (a * 365 / self.dias_periodo_facturado).quantize(CENT, ROUND_HALF_UP)
                 for pct, a in self.ahorro.items()}
 
 
-def _confianza(ingesta: Ingesta) -> tuple[Confianza, int]:
+def _confianza(ingesta: Ingesta, periodo: Periodo) -> tuple[Confianza, int]:
     completos = [m for m in ingesta.calidad.meses.values() if m.completo]
     if len(completos) < 12:
         return "baja", len(completos)
-    todo_real = all(m.estimadas == 0 and m.desconocidas == 0 for m in completos)
+    desde, hasta = limites_del_periodo(periodo)
+    real_en_el_periodo = all(x.tipo == "real" for x in ingesta.lecturas if desde <= x.instante_utc < hasta)
+    todo_real = real_en_el_periodo and all(m.estimadas == 0 and m.desconocidas == 0 for m in completos)
     return ("alta" if todo_real else "media"), len(completos)
 
 
@@ -66,7 +70,7 @@ def _validar(habito: Habito, tarifa: str, consumo: dict[str, Decimal]) -> None:
         raise HabitoImposible(f"periodo fuera de la tarifa {tarifa}: usar {', '.join(validos)}")
     if habito.origen == habito.destino:
         raise HabitoImposible("el origen y el destino son el mismo periodo")
-    if habito.kwh <= 0:
+    if not habito.kwh.is_finite() or habito.kwh <= 0:
         raise HabitoImposible("los kWh a mover deben ser positivos")
     if habito.kwh > consumo.get(habito.origen, Decimal(0)):
         raise HabitoImposible(f"no se puede mover más de lo consumido en el origen {habito.origen}")
@@ -83,6 +87,6 @@ def evaluar_habito(site: SiteParams, ingesta: Ingesta, calendario: Calendario, r
         nuevo[habito.origen] = consumo[habito.origen] - movido
         nuevo[habito.destino] = consumo.get(habito.destino, Decimal(0)) + movido
         escenarios[pct] = desglose(site, nuevo, reglas, precios, periodo)
-    confianza, meses = _confianza(ingesta)
+    confianza, meses = _confianza(ingesta, periodo)
     return EvaluacionHabito(habito, desglose(site, consumo, reglas, precios, periodo), escenarios, confianza,
                             meses, len(periodo.dias()))

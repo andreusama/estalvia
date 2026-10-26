@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from estalvia.analysis.habito import Habito, HabitoImposible, evaluar_habito
-from estalvia.analysis.nucleo import PrecioContrato
+from estalvia.analysis.nucleo import FaltaDato, PrecioContrato
 from estalvia.engine.calc import Periodo, SiteParams
 from estalvia.engine.periods import Calendario
 from estalvia.engine.rules import RuleSet
@@ -53,10 +53,18 @@ def test_no_se_puede_mover_mas_de_lo_consumido_en_el_origen():
     assert evaluar(kwh="8").ahorro[100] > 0
 
 
-def test_un_habito_incoherente_se_rechaza():
-    for malo in [dict(origen="P1", destino="P1"), dict(kwh="0"), dict(kwh="-1"), dict(destino="P4")]:
-        with pytest.raises(HabitoImposible):
-            evaluar(**malo)
+@pytest.mark.parametrize("malo", [dict(origen="P1", destino="P1"), dict(kwh="0"), dict(kwh="-1"),
+                                  dict(destino="P4"), dict(kwh="NaN"), dict(kwh="Infinity")])
+def test_un_habito_incoherente_se_rechaza(malo):
+    with pytest.raises(HabitoImposible):
+        evaluar(**malo)
+
+
+def test_sin_precio_del_periodo_destino_falta_el_dato():
+    sin_p3 = PrecioContrato(energia_eur_kwh={"P1": D("0.20"), "P2": D("0.15")},
+                            potencia_eur_kw_anio=PRECIOS.potencia_eur_kw_anio)
+    with pytest.raises(FaltaDato, match="P3"):
+        evaluar_habito(SITIO, UN_DIA, CALENDARIO, REGLAS, sin_p3, LUNES, Habito("P1", "P3", D(1)))
 
 
 def test_con_un_mes_o_menos_la_confianza_es_baja_y_el_anual_es_orientativo():
@@ -71,3 +79,12 @@ def test_con_12_meses_reales_la_confianza_es_alta_y_con_una_estimada_es_media():
     anual = csv(inicio, horas)
     assert evaluar(ingesta=anual).meses_completos == 12 and evaluar(ingesta=anual).confianza == "alta"
     assert evaluar(ingesta=csv(inicio, horas, estimada_en=100)).confianza == "media"
+
+
+def test_con_once_meses_y_medio_la_confianza_sigue_siendo_baja_y_un_destino_mas_caro_da_ahorro_negativo():
+    inicio = datetime(2025, 6, 30, 22, 0, tzinfo=timezone.utc)
+    horas = int((datetime(2026, 6, 14, 22, 0, tzinfo=timezone.utc) - inicio).total_seconds() // 3600)
+    e = evaluar(ingesta=csv(inicio, horas))
+    assert (e.confianza, e.meses_completos) == ("baja", 11)
+    assert evaluar(origen="P3", destino="P1", kwh="1").ahorro[100] < 0
+    assert e.anual_es_orientativo
