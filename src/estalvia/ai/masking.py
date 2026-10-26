@@ -83,7 +83,7 @@ CON_COMPTADOR = re.compile(
     re.IGNORECASE)
 
 _FECHA = re.compile(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b|\b\d{4}-\d{2}-\d{2}\b")
-_CON_UNIDAD = re.compile(r"\d[\d.,]*[ ]*(?:kwh|kw|kva|kvarh|€|eur|%)", re.IGNORECASE)
+_CON_UNIDAD = re.compile(r"(?<![\d.,])\d[\d.,]*[ ]*(?:kwh|kw|kva|kvarh|€|eur|%)", re.IGNORECASE)
 _DECIMAL = re.compile(r"^-?\d[\d.]*,\d+$|^-?\d+\.\d+$")
 
 

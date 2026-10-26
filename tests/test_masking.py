@@ -181,7 +181,7 @@ def test_contrato_con_apostrofo_tipografico_y_numero_de_contador_se_enmascaran(l
     "Lectures del comptador P1 inicial 1000,5 final 1050,2",
     "Lectures del comptador",
     "Valor 0,123456789 €/dia",
-    "Telèfon d’emergències de la distribuïdora: 800 760 909",
+    "Telèfon d’emergències de la distribuïdora: 800 000 000",
 ])
 def test_no_se_enmascaran_las_cifras_de_calculo_ni_los_datos_publicos_cercanos(linea):
     assert enmascarar(linea, clave=CLAVE) == linea
