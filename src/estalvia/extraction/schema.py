@@ -5,7 +5,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ValidationError, model_validator
 
 TOLERANCIA_SUMA = Decimal("0.02")  # euros
 PERIODOS = ("P1", "P2", "P3", "P4", "P5", "P6")
@@ -74,7 +74,7 @@ class FacturaExtraida(BaseModel):
     confianza_campos: dict[str, float] = {}
 
     @model_validator(mode="after")
-    def _claves(self):
+    def _periodos_validos(self):
         potencia, energia = PERIODOS_POTENCIA[self.tarifa_acceso], PERIODOS_ENERGIA[self.tarifa_acceso]
         campos = {"potencia_contratada_kw": potencia, "potencia_maxima_kw": potencia, "energia_kwh": energia,
                   "energia_reactiva_kvarh": energia, "lecturas_contador": energia}
@@ -85,8 +85,19 @@ class FacturaExtraida(BaseModel):
         return self
 
 
+def validar_datos(datos: dict, otras: list[FacturaExtraida] | None = None) -> tuple[FacturaExtraida | None, list[str]]:
+    """Punto de entrada para datos sin validar (salida de la IA): un fallo de esquema (campo crítico ausente,
+    periodo no válido para la tarifa...) es un problema que lleva a Revisión, no una excepción. Los mensajes
+    nombran el campo y la regla, nunca el valor recibido (puede ser un dato personal)."""
+    try:
+        f = FacturaExtraida.model_validate(datos)
+    except ValidationError as e:
+        return None, [f"{'.'.join(str(x) for x in err['loc']) or 'factura'}: {err['msg']}" for err in e.errors()]
+    return f, validar_factura(f, otras)
+
+
 def validar_factura(f: FacturaExtraida, otras: list[FacturaExtraida] | None = None) -> list[str]:
-    """Devuelve la lista de problemas; vacía = pasa. Si hay alguno, la factura va a `a_revisar`."""
+    """Devuelve la lista de problemas; vacía = pasa. Si hay alguno, la factura va a Revisión."""
     problemas: list[str] = []
     for campo in ("potencia_contratada_kw", "energia_kwh", "conceptos"):
         if not getattr(f, campo):

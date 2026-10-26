@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from estalvia.extraction.schema import FacturaExtraida, validar_factura
+from estalvia.extraction.schema import FacturaExtraida, validar_datos, validar_factura
 
 
 def datos(**cambios):
@@ -93,3 +93,37 @@ def test_campo_critico_ausente_es_un_problema_no_un_valor_por_defecto(campo):
 def test_sin_conceptos_es_un_problema():
     problemas = validar_factura(factura(conceptos=[]))
     assert any("conceptos" in p for p in problemas)
+
+
+def test_datos_validos_dan_factura_y_sin_problemas():
+    f, problemas = validar_datos(datos())
+    assert f is not None and problemas == []
+
+
+@pytest.mark.parametrize("campo", ["total", "periodo_facturado"])
+def test_total_o_fechas_ausentes_van_a_revision_sin_excepcion(campo):
+    d = datos()
+    del d[campo]
+    f, problemas = validar_datos(d)
+    assert f is None
+    assert any(campo in p for p in problemas)
+
+
+def test_periodo_no_valido_para_la_tarifa_va_a_revision():
+    f, problemas = validar_datos(datos(energia_kwh={"P1": "1", "P4": "1"}))
+    assert f is None and any("P4" in p for p in problemas)
+
+
+def test_lectura_del_contador_con_periodo_no_valido_se_rechaza():
+    with pytest.raises(ValidationError, match="P4"):
+        factura(lecturas_contador={"P4": {"inicial": "1", "final": "2"}})
+
+
+def test_nulos_explicitos_se_conservan_como_ausentes():
+    f = factura(lecturas_contador=None, desglose_regulado=None)
+    assert f.lecturas_contador is None and f.desglose_regulado is None
+
+
+def test_los_problemas_no_incluyen_valores_de_la_factura_en_errores_de_esquema():
+    _, problemas = validar_datos(datos(total="no-es-un-numero"))
+    assert problemas and "no-es-un-numero" not in " ".join(problemas)
