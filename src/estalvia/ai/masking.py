@@ -30,7 +30,11 @@ TELEFONO = re.compile(
 TRATAMIENTO = re.compile(
     rf"\b(?:Sr\.|Sra\.|Sres\.|Don|Doña|Dña\.|Dª|Senyor|Senyora)[ ]+(?:{_MAY}[\w'-]*[ ]?){{1,4}}")
 CODIGO_POSTAL_Y_POBLACION = re.compile(
-    rf"\b(?:0[1-9]|[1-4]\d|5[0-2])\d{{3}}[ ]+{_MAY}[\w.'-]+(?:[ ]{_MAY}[\w.'-]+){{0,2}}")
+    rf"\b(?:0[1-9]|[1-4]\d|5[0-2])\d{{3}}(?:,[ ]*|[ ]+){_MAY}[\w.'-]+(?:,?[ ]+{_MAY}[\w.'-]+){{0,3}}")
+# Calle: abreviatura o tipo de vía con mayúscula inicial al comienzo de un tramo de línea (hasta 3 espacios o el fin).
+CALLE = re.compile(
+    r"(?<![\w/])(?:CL|C/|Calle|CALLE|Carrer|CARRER|Avda\.?|AVDA\.?|Avenida|AVENIDA|Avinguda|AVINGUDA|Plaza|PLAZA"
+    r"|Plaça|PLAÇA|Paseo|PASEO|Passeig|PASSEIG)[ ]+\S.*?(?=[ ]{3,}|\t|$)", re.MULTILINE)
 
 # Etiquetas cuyo valor es personal y que exigen «:» pegado a la etiqueta (castellano y catalán).
 _ETIQUETAS_CON_DOS_PUNTOS = "|".join([
@@ -47,6 +51,11 @@ _ETIQUETAS_CON_DOS_PUNTOS = "|".join([
 ])
 CON_DOS_PUNTOS = re.compile(
     rf"(?P<etiqueta>\b(?:{_ETIQUETAS_CON_DOS_PUNTOS})[ \t]*:[ \t]*)(?P<valor>\S.*?)(?=[ \t]{{3,}}|\t|$)",
+    re.IGNORECASE | re.MULTILINE)
+
+# La misma etiqueta con «:» al final de la línea y el valor en la siguiente (pdftotext -layout lo hace a menudo).
+EN_LINEA_SIGUIENTE = re.compile(
+    rf"(?P<etiqueta>\b(?:{_ETIQUETAS_CON_DOS_PUNTOS})[ \t]*:[ \t]*\n[ \t\n]*)(?P<valor>\S.*?)(?=[ \t]{{3,}}|\t|$)",
     re.IGNORECASE | re.MULTILINE)
 
 # Etiquetas con «nº»/«número»: el valor es una sola palabra y debe llevar algún dígito.
@@ -104,6 +113,8 @@ def enmascarar(texto: str, extra: list[str] | None = None, *, clave: bytes) -> s
     texto = CON_NUMERO.sub(_sustituir_valor, texto)
     texto = CON_COMPTADOR.sub(_sustituir_valor, texto)
     texto = CON_DOS_PUNTOS.sub(_sustituir_valor, texto)
+    texto = EN_LINEA_SIGUIENTE.sub(_sustituir_valor, texto)
+    texto = CALLE.sub("[DIRECCION]", texto)
     texto = TRATAMIENTO.sub("[NOMBRE]", texto)
     texto = CODIGO_POSTAL_Y_POBLACION.sub("[DATO]", texto)
     texto = TELEFONO.sub("[TELEFONO]", texto)

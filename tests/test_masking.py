@@ -185,3 +185,35 @@ def test_contrato_con_apostrofo_tipografico_y_numero_de_contador_se_enmascaran(l
 ])
 def test_no_se_enmascaran_las_cifras_de_calculo_ni_los_datos_publicos_cercanos(linea):
     assert enmascarar(linea, clave=CLAVE) == linea
+
+
+@pytest.mark.parametrize("texto,secreto", [
+    ("Adreça de subministrament:\nCalle Inventada 12, 3º B\nSegüent", "Inventada"),
+    ("Dirección de suministro:\n\n   Calle Inventada 12", "Inventada"),
+    ("CL INVENTADA GRANDE 12 3° 2ª", "INVENTADA"),
+    ("Carrer Inventat 7, 2n 1a", "Inventat"),
+    ("Avda. Ficticia 3", "Ficticia"),
+    ("Plaza Inexistente 4, 1º", "Inexistente"),
+    ("Total   31,00 €    08000, VILLAFICTICIA, BARCELONA", "VILLAFICTICIA"),
+    ("Total   31,00 €    08000, VILLAFICTICIA, BARCELONA", "BARCELONA"),
+    ("Mr.  Mr.    08000, Vilaficticia,", "Vilaficticia"),
+])
+def test_direcciones_en_la_linea_siguiente_calles_y_codigo_postal_con_coma(texto, secreto):
+    assert secreto not in enmascarar(texto, clave=CLAVE)
+
+
+@pytest.mark.parametrize("texto", [
+    "Distribuïdora:\nENDESA DISTRIBUCIÓN ELECTRICA S.L.",
+    "Contracte:\n31,25 kWh",
+    "Total   31,00 €    kWh 1.234,50",
+    "Energia punta   100 x 0,150000   15,00 €",
+    "Impost sobre l'electricitat   5,11269632 % s/ 43,00 €   2,20 €",
+    "Via de comunicació amb la distribuïdora",
+])
+def test_estas_lineas_no_son_direcciones_y_no_se_tocan(texto):
+    assert enmascarar(texto, clave=CLAVE) == texto
+
+
+def test_la_cifra_junto_a_un_codigo_postal_se_conserva():
+    salida = enmascarar("Total   31,00 €    08000, VILLAFICTICIA, BARCELONA", clave=CLAVE)
+    assert "31,00 €" in salida
