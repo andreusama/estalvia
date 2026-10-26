@@ -8,6 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, ValidationError, model_validator
 
 TOLERANCIA_SUMA = Decimal("0.02")  # euros
+PROBLEMA_SUMA = "no cuadra con el total"  # texto del problema; las evals lo reconocen
 PERIODOS = ("P1", "P2", "P3", "P4", "P5", "P6")
 # Periodos tarifarios válidos por tarifa de acceso. `otra` no restringe: la tarifa no se conoce.
 PERIODOS_ENERGIA = {"2.0TD": PERIODOS[:3], "3.0TD": PERIODOS, "6.1TD": PERIODOS, "otra": PERIODOS}
@@ -104,7 +105,7 @@ def validar_factura(f: FacturaExtraida, otras: list[FacturaExtraida] | None = No
             problemas.append(f"falta {campo}: no se puede recalcular sin ese campo")
     suma = sum((c.importe for c in f.conceptos), Decimal(0)) + f.impuestos.electrico + f.impuestos.iva
     if abs(suma - f.total) > TOLERANCIA_SUMA:
-        problemas.append(f"la suma de conceptos e impuestos ({suma}) no cuadra con el total ({f.total}) "
+        problemas.append(f"la suma de conceptos e impuestos ({suma}) {PROBLEMA_SUMA} ({f.total}) "
                          f"por más de {TOLERANCIA_SUMA}")
     for o in otras or []:
         if o.cups == f.cups and not (

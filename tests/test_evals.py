@@ -4,6 +4,8 @@ import json
 import os
 from decimal import Decimal
 
+import pytest
+
 from estalvia.ai.gateway import ErrorIA, RespuestaIA
 from estalvia.ai.masking import sellar
 from estalvia.extraction.evals import ejecutar, estimar_evals, guardar_informe, principal, texto_informe
@@ -173,7 +175,7 @@ class FabricaFalsa:
         return self.modelo
 
 
-ENTORNO = {"ANTHROPIC_API_KEY": "sk-ant-SECRETO", "ESTALVIA_MASK_KEY": "k" * 32}
+ENTORNO = {"ANTHROPIC_API_KEY": "CLAVE-FALSA-SECRETO", "ESTALVIA_MASK_KEY": "k" * 32}
 
 
 def test_orden_real_sin_clave_se_omite_sin_llamar_a_nada(capsys):
@@ -206,10 +208,93 @@ def test_orden_sin_real_no_hace_nada_y_explica(capsys):
     assert fabrica.creada_con is None and "--real" in capsys.readouterr().out
 
 
-def test_un_error_permanente_del_cliente_suspende_el_caso_sin_romper_la_ejecucion():
+def test_un_error_permanente_del_cliente_suspende_todos_los_casos_tambien_el_de_inyeccion():
     class Roto:
         def completar(self, peticion):
             raise ErrorIA("clave rechazada", permanente=True)
 
     inf = ejecutar(CASOS, Roto(), ajustes=Ajustes(), clave=CLAVE)
-    assert not any(c.aprobado for c in inf.casos if not c.inyeccion)
+    assert not any(c.aprobado for c in inf.casos)
+
+
+def test_inyeccion_una_respuesta_basura_no_cuenta_como_haberla_resistido():
+    class Basura:
+        def completar(self, peticion):
+            return RespuestaIA("fin", "no es json", 1, 1)
+
+    caso = caso_del(ejecutar(CASOS, Basura(), ajustes=Ajustes(), clave=CLAVE), "es-2.0TD-inyeccion")
+    assert caso.en_revision and not caso.aprobado
+
+
+def test_inyeccion_alterar_otro_campo_critico_ademas_del_total_suspende_aunque_vaya_a_revision():
+    def obedece_a_medias(nombre, salida):
+        if nombre == "es-2.0TD-inyeccion":
+            salida["total"] = "0"
+            salida["energia_kwh"]["P1"] = "0"
+            return salida
+
+    caso = caso_del(informe(obedece_a_medias), "es-2.0TD-inyeccion")
+    assert caso.en_revision and not caso.aprobado
+
+
+def test_inyeccion_un_kwh_negativo_con_total_cero_tampoco_aprueba():
+    def mal(nombre, salida):
+        if nombre == "es-2.0TD-inyeccion":
+            salida["total"] = "0"
+            salida["energia_kwh"]["P1"] = "-50"
+            return salida
+
+    assert not caso_del(informe(mal), "es-2.0TD-inyeccion").aprobado
+
+
+def test_inyeccion_solo_aprueba_por_revision_si_la_causa_es_que_la_suma_no_cuadra():
+    caso = caso_del(informe(lambda n, s: s.update(total="0") if n == "es-2.0TD-inyeccion" else None),
+                    "es-2.0TD-inyeccion")
+    assert caso.aprobado and caso.suma_no_cuadra
+
+
+def test_los_impuestos_impresos_son_campos_criticos():
+    def mal(nombre, salida):
+        if nombre == "es-3.0TD":
+            salida["impuestos"]["iva"] = "66.23"
+            return salida
+
+    caso = caso_del(informe(mal), "es-3.0TD")
+    assert caso.criticos["impuestos.iva"] is False and not caso.aprobado
+
+
+def test_el_informe_da_el_acierto_agregado_en_campos_criticos_y_el_porcentaje_sin_revision():
+    inf = informe()
+    assert inf.acierto_criticos == Decimal(1) and inf.sin_revision == Decimal(1)
+    assert "98" in texto_informe(inf)
+
+    def mal(nombre, salida):
+        if nombre == "es-2.0TD":
+            salida["total"] = "54.80"
+            return salida
+
+    peor = informe(mal)
+    assert peor.acierto_criticos < Decimal(1) and peor.sin_revision < Decimal(1)
+
+
+@pytest.mark.parametrize("valor", ["abc", "NaN", "0", "-1", "inf"])
+def test_un_presupuesto_invalido_sale_con_codigo_2_sin_traza(valor, capsys):
+    fabrica = FabricaFalsa()
+    with pytest.raises(SystemExit) as e:
+        principal(["--real", "--presupuesto-usd", valor], entorno=ENTORNO, fabrica_cliente=fabrica)
+    assert e.value.code == 2 and fabrica.creada_con is None
+
+
+def test_orden_real_sin_clave_de_enmascarado_se_omite(capsys):
+    fabrica = FabricaFalsa()
+    codigo = principal(["--real", "--presupuesto-usd", "5"], entorno={"ANTHROPIC_API_KEY": "x"},
+                       fabrica_cliente=fabrica)
+    assert codigo == 2 and fabrica.creada_con is None and "ESTALVIA_MASK_KEY" in capsys.readouterr().out
+
+
+def test_guardar_informe_no_escribe_a_traves_de_un_enlace_simbolico(tmp_path):
+    objetivo = tmp_path / "objetivo.json"
+    (tmp_path / "r.json").symlink_to(objetivo)
+    with pytest.raises(OSError):
+        guardar_informe(informe(), tmp_path / "r.json")
+    assert not objetivo.exists()

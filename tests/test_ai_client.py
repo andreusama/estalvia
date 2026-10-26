@@ -101,7 +101,7 @@ def test_sin_presupuesto_suficiente_no_se_llama_a_la_api():
 
 def test_errores_de_la_api_se_clasifican_sin_filtrar_la_clave():
     req = httpx.Request("POST", "https://api.invalid/v1/messages")
-    auth = anthropic.AuthenticationError("sk-ant-SECRETO rechazada", response=httpx.Response(401, request=req),
+    auth = anthropic.AuthenticationError("CLAVE-FALSA-SECRETO rechazada", response=httpx.Response(401, request=req),
                                          body=None)
     with pytest.raises(ErrorIA) as e:
         cliente(SdkFalso(error=auth)).completar(PETICION)
@@ -117,7 +117,7 @@ def test_errores_de_la_api_se_clasifican_sin_filtrar_la_clave():
 
 
 def test_desde_entorno_usa_la_clave_sin_mostrarla_y_falla_claro_si_falta():
-    c = ClienteAnthropic.desde_entorno({"ANTHROPIC_API_KEY": "sk-ant-SECRETO"}, presupuesto_usd=Decimal("1"))
+    c = ClienteAnthropic.desde_entorno({"ANTHROPIC_API_KEY": "CLAVE-FALSA-SECRETO"}, presupuesto_usd=Decimal("1"))
     assert "SECRETO" not in repr(c) and "SECRETO" not in str(vars(c).get("presupuesto_usd"))
     with pytest.raises(ErrorConfig, match="ANTHROPIC_API_KEY"):
         ClienteAnthropic.desde_entorno({}, presupuesto_usd=Decimal("1"))
@@ -165,17 +165,17 @@ def test_el_presupuesto_es_acumulado_entre_llamadas():
 
 def test_el_entorno_no_se_muestra_al_imprimirlo(tmp_path):
     f = tmp_path / ".env"
-    f.write_text("ANTHROPIC_API_KEY=sk-ant-SECRETO\n", encoding="utf-8")
+    f.write_text("ANTHROPIC_API_KEY=CLAVE-FALSA-SECRETO\n", encoding="utf-8")
     assert "SECRETO" not in repr(leer_env(f, entorno={})) and "SECRETO" not in str(leer_env(f, entorno={}))
 
 
 def test_desde_entorno_sin_argumento_lee_el_fichero_env(tmp_path, monkeypatch):
-    (tmp_path / ".env").write_text("ANTHROPIC_API_KEY=sk-ant-SECRETO\n", encoding="utf-8")
+    (tmp_path / ".env").write_text("ANTHROPIC_API_KEY=CLAVE-FALSA-SECRETO\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     assert ClienteAnthropic.desde_entorno(presupuesto_usd=Decimal("1")) is not None
 
 
 def test_el_sdk_no_reintenta_por_su_cuenta_para_que_el_presupuesto_cuente_cada_llamada():
-    c = ClienteAnthropic.desde_entorno({"ANTHROPIC_API_KEY": "sk-ant-SECRETO"}, presupuesto_usd=Decimal("1"))
+    c = ClienteAnthropic.desde_entorno({"ANTHROPIC_API_KEY": "CLAVE-FALSA-SECRETO"}, presupuesto_usd=Decimal("1"))
     assert c._sdk.max_retries == 0
