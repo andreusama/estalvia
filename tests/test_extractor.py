@@ -246,3 +246,22 @@ def test_el_esquema_de_salida_coincide_con_el_modelo_y_con_la_salida_de_ejemplo(
     assert propiedades == set(salida()) and propiedades <= set(FacturaExtraida.model_fields)
     assert set(ESQUEMA_SALIDA["required"]) == propiedades and ESQUEMA_SALIDA["additionalProperties"] is False
     assert {"confianza_campos", "modalidad_precio"} & propiedades == {"modalidad_precio"}
+
+
+def test_los_motivos_de_todos_los_intentos_se_conservan():
+    cliente = ClienteFalso(ok("{"), ErrorIA("presupuesto agotado", permanente=True))
+    r = extraer(cliente)
+    texto = " | ".join(r.problemas)
+    assert r.en_revision and "intento 1" in texto and "JSON" in texto and "intento 2" in texto
+    assert "presupuesto agotado" in texto
+
+
+def test_un_fallo_permanente_en_el_primer_intento_se_etiqueta_como_intento_1():
+    r = extraer(ClienteFalso(ErrorIA("clave rechazada", permanente=True)))
+    assert r.problemas == ["intento 1: error de la IA: clave rechazada"]
+
+
+def test_el_prompt_dice_que_los_impuestos_y_el_total_no_van_entre_los_conceptos():
+    from estalvia.extraction.extractor import PROMPT_SISTEMA, VERSION_PROMPT
+    assert "nunca" in PROMPT_SISTEMA and "conceptos" in PROMPT_SISTEMA and "impuesto" in PROMPT_SISTEMA.lower()
+    assert VERSION_PROMPT.endswith(".3")

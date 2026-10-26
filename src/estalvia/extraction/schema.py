@@ -12,13 +12,16 @@ PROBLEMA_SUMA = "no cuadra con el total"  # texto del problema; las evals lo rec
 PERIODOS = ("P1", "P2", "P3", "P4", "P5", "P6")
 # Periodos tarifarios válidos por tarifa de acceso. `otra` no restringe: la tarifa no se conoce.
 PERIODOS_ENERGIA = {"2.0TD": PERIODOS[:3], "3.0TD": PERIODOS, "6.1TD": PERIODOS, "otra": PERIODOS}
-PERIODOS_POTENCIA = {"2.0TD": PERIODOS[:2], "3.0TD": PERIODOS, "6.1TD": PERIODOS, "otra": PERIODOS}
+# 2.0TD factura 2 periodos de potencia, pero las facturas reales imprimen la potencia contratada en P1-P6:
+# se acepta lo impreso y solo P1 y P2 intervienen al recalcular.
+PERIODOS_POTENCIA = {"2.0TD": PERIODOS, "3.0TD": PERIODOS, "6.1TD": PERIODOS, "otra": PERIODOS}
 
 
 class Concepto(BaseModel):
     nombre: str
-    cantidad: Decimal
-    precio: Decimal
+    # Opcionales: hay líneas (alquiler, bono social...) que la factura imprime solo con su importe.
+    cantidad: Decimal | None = None
+    precio: Decimal | None = None
     importe: Decimal
 
 
@@ -78,7 +81,7 @@ class FacturaExtraida(BaseModel):
     def _periodos_validos(self):
         potencia, energia = PERIODOS_POTENCIA[self.tarifa_acceso], PERIODOS_ENERGIA[self.tarifa_acceso]
         campos = {"potencia_contratada_kw": potencia, "potencia_maxima_kw": potencia, "energia_kwh": energia,
-                  "energia_reactiva_kvarh": energia, "lecturas_contador": energia}
+                  "energia_reactiva_kvarh": energia, "lecturas_contador": PERIODOS}  # las lecturas, como se imprimen
         for campo, validos in campos.items():
             malas = set(getattr(self, campo) or ()) - set(validos)
             if malas:

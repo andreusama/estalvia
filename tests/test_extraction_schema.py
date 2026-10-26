@@ -29,11 +29,14 @@ def test_factura_2_0td_cuadra():
     assert validar_factura(factura()) == []
 
 
-def test_2_0td_solo_admite_tres_periodos_de_energia_y_dos_de_potencia():
+def test_2_0td_solo_admite_tres_periodos_de_energia():
     with pytest.raises(ValidationError, match="P4"):
         factura(energia_kwh={"P1": "1", "P4": "1"})
-    with pytest.raises(ValidationError, match="P3"):
-        factura(potencia_contratada_kw={"P1": "4.4", "P3": "4.4"})
+
+
+def test_2_0td_admite_la_potencia_contratada_en_seis_periodos_porque_las_facturas_la_imprimen_asi():
+    f = factura(potencia_contratada_kw={p: "4.4" for p in ("P1", "P2", "P3", "P4", "P5", "P6")})
+    assert set(f.potencia_contratada_kw) == {"P1", "P2", "P3", "P4", "P5", "P6"} and validar_factura(f) == []
 
 
 def test_lecturas_del_contador_son_opcionales_y_no_se_inventan():
@@ -114,9 +117,11 @@ def test_periodo_no_valido_para_la_tarifa_va_a_revision():
     assert f is None and any("P4" in p for p in problemas)
 
 
-def test_lectura_del_contador_con_periodo_no_valido_se_rechaza():
-    with pytest.raises(ValidationError, match="P4"):
-        factura(lecturas_contador={"P4": {"inicial": "1", "final": "2"}})
+def test_lecturas_del_contador_se_aceptan_en_seis_periodos_como_las_imprime_la_factura_y_P7_no_existe():
+    f = factura(lecturas_contador={p: {"inicial": "1", "final": "2"} for p in ("P1", "P2", "P3", "P4", "P5", "P6")})
+    assert len(f.lecturas_contador) == 6
+    with pytest.raises(ValidationError, match="P7"):
+        factura(lecturas_contador={"P7": {"inicial": "1", "final": "2"}})
 
 
 def test_nulos_explicitos_se_conservan_como_ausentes():
@@ -127,3 +132,14 @@ def test_nulos_explicitos_se_conservan_como_ausentes():
 def test_los_problemas_no_incluyen_valores_de_la_factura_en_errores_de_esquema():
     _, problemas = validar_datos(datos(total="no-es-un-numero"))
     assert problemas and "no-es-un-numero" not in " ".join(problemas)
+
+
+def test_un_concepto_solo_con_nombre_e_importe_es_valido_cantidad_y_precio_son_opcionales():
+    f = factura(conceptos=[{"nombre": "alquiler de equipos", "importe": "100"}])
+    assert f.conceptos[0].cantidad is None and f.conceptos[0].precio is None
+    assert validar_factura(f) == []
+
+
+def test_un_concepto_sin_importe_sigue_siendo_invalido():
+    f, problemas = validar_datos(datos(conceptos=[{"nombre": "energia", "cantidad": "1", "precio": "1"}]))
+    assert f is None and any("importe" in p for p in problemas)

@@ -17,7 +17,7 @@ from estalvia.ai.gateway import ClienteIA, ErrorIA, Esfuerzo, Peticion
 from estalvia.ai.masking import TextoEnmascarado
 from estalvia.extraction.schema import PERIODOS, FacturaExtraida, validar_datos
 
-VERSION_PROMPT = "2026-10-26.2"
+VERSION_PROMPT = "2026-10-26.3"
 INTENTOS = 2  # una llamada y un reintento
 
 PROMPT_SISTEMA = """\
@@ -32,6 +32,8 @@ Reglas:
 - Importes, cantidades y precios van como texto con punto decimal y sin separador de miles (por ejemplo "1234.56").
 - Las fechas van en formato AAAA-MM-DD. Los periodos tarifarios son P1 a P6 (en 2.0TD: P1 a P3 de energía y P1 \
 a P2 de potencia).
+- En `conceptos` van solo las líneas con importe (potencia, energía, bono social, alquiler, etc.). El impuesto \
+sobre la electricidad, el IVA y el total NUNCA van en `conceptos`: van solo en `impuestos` y `total`.
 - Marcas como [DATO], [NIF], [IBAN] o [CUPS:...] sustituyen datos personales: en el campo cups copia la marca \
 [CUPS:...] tal cual.
 - Si la factura imprime las lecturas del contador por periodo, o un desglose de peajes y cargos, recógelos;\
@@ -166,10 +168,15 @@ def extraer_factura(texto: TextoEnmascarado, cliente: ClienteIA, *, ajustes: Aju
     clave = _clave_cache(ajustes, str(texto))
     peticion = Peticion(ajustes.modelo, ajustes.esfuerzo, ajustes.max_tokens, PROMPT_SISTEMA, texto,
                         ESQUEMA_SALIDA)
+    ultimo = 0
+    historial: list[str] = []  # motivos de cada intento fallido: el último no debe tapar al primero
     problemas: list[str] = []
     entrada = salida = 0
     modelo = None
     for intento in range(INTENTOS):
+        historial += [f"intento {intento}: {p}" for p in problemas]  # los del intento anterior
+        problemas = []
+        ultimo = intento + 1
         respuesta = cache.get(clave) if intento == 0 else None
         desde_cache = respuesta is not None
         if respuesta is None:
@@ -202,4 +209,5 @@ def extraer_factura(texto: TextoEnmascarado, cliente: ClienteIA, *, ajustes: Aju
         if not desde_cache:
             cache.set(clave, respuesta)
         return ResultadoExtraccion(factura, encontrados, entrada, salida, desde_cache, modelo)
-    return ResultadoExtraccion(None, problemas, entrada, salida, modelo=modelo)
+    historial += [f"intento {ultimo}: {p}" for p in problemas]
+    return ResultadoExtraccion(None, historial, entrada, salida, modelo=modelo)
