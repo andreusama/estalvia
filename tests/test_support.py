@@ -28,7 +28,7 @@ def test_factura_no_cuadra_y_solape():
 
 def test_enmascarado():
     t = enmascarar("Titular Juan Pérez NIF 12345678Z CUPS ES0021000000000000AB dir Calle Sol 5",
-                   ["Juan Pérez", "Calle Sol 5"])
+                   ["Juan Pérez", "Calle Sol 5"], clave=b"clave-de-prueba")
     assert "12345678Z" not in t and "Juan" not in t and "Calle Sol" not in t
     assert "0021000000000000" not in t
 
