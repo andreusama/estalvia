@@ -8,7 +8,7 @@ register = template.Library()
 def _es(valor: Decimal, decimales: int) -> str:
     q = valor.quantize(Decimal(1).scaleb(-decimales), rounding=ROUND_HALF_UP)
     entero, _, frac = f"{q:f}".partition(".")
-    signo = "-" if entero.startswith("-") else ""
+    signo = "-" if entero.startswith("-") and q != 0 else ""
     entero = entero.lstrip("-")
     miles = f"{int(entero):,}".replace(",", ".")
     return f"{signo}{miles}" + (f",{frac}" if decimales else "")

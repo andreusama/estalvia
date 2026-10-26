@@ -14,6 +14,10 @@ import yaml
 
 from estalvia.analysis.nucleo import PrecioContrato
 from estalvia.engine.calc import Periodo, SiteParams
+from estalvia.extraction.schema import PERIODOS_ENERGIA, PERIODOS_POTENCIA
+
+MAXIMO = Decimal("1000000")  # tope de cordura para evitar desbordes; no es un dato regulatorio
+DIAS_MAXIMOS = 366
 
 
 class ErrorContrato(ValueError):
@@ -31,9 +35,12 @@ def _decimal(valor, campo: str) -> Decimal:
     if isinstance(valor, bool) or not isinstance(valor, (str, int)):
         raise ErrorContrato(f"{campo}: escribir el número como texto, por ejemplo \"0.15\"")
     try:
-        return Decimal(str(valor))
+        d = Decimal(str(valor))
     except InvalidOperation:
         raise ErrorContrato(f"{campo}: no es un número") from None
+    if not d.is_finite() or d < 0 or d > MAXIMO:
+        raise ErrorContrato(f"{campo}: debe ser un número finito, no negativo y razonable")
+    return d
 
 
 def _por_periodo(datos, campo: str) -> dict[str, Decimal]:
@@ -53,17 +60,25 @@ def cargar_contrato(ruta: str | Path) -> Contrato:
         precios = crudo["precios"]
         periodo = crudo["periodo"]
         inicio, fin = periodo["inicio"], periodo["fin"]
-        if not isinstance(inicio, date) or not isinstance(fin, date):
+        if type(inicio) is not date or type(fin) is not date:
             raise ErrorContrato("periodo: las fechas deben ser AAAA-MM-DD")
-        site = SiteParams(str(crudo["tarifa"]), _por_periodo(crudo["potencia_contratada_kw"], "potencia_contratada_kw"),
+        if not 0 <= (fin - inicio).days < DIAS_MAXIMOS:
+            raise ErrorContrato("periodo: el inicio debe ser anterior o igual al fin y el periodo, de menos de un año")
+        tarifa = str(crudo["tarifa"])
+        if tarifa == "otra" or tarifa not in PERIODOS_ENERGIA:
+            raise ErrorContrato(f"tarifa: debe ser una de {', '.join(t for t in PERIODOS_ENERGIA if t != 'otra')}")
+        potencia = _por_periodo(crudo["potencia_contratada_kw"], "potencia_contratada_kw")
+        energia = _por_periodo(precios["energia_eur_kwh"], "precios.energia_eur_kwh")
+        precio_potencia = _por_periodo(precios["potencia_eur_kw_anio"], "precios.potencia_eur_kw_anio")
+        if not set(potencia) | set(precio_potencia) <= set(PERIODOS_POTENCIA[tarifa]) \
+                or not set(energia) <= set(PERIODOS_ENERGIA[tarifa]):
+            raise ErrorContrato("los periodos de potencia o energía no corresponden a la tarifa")
+        site = SiteParams(tarifa, potencia,
                           ie_uso=str(crudo.get("ie_uso", "profesional")),
                           aplica_bono_social=bool(crudo.get("aplica_bono_social", False)),
                           alquiler_importe=(_decimal(crudo["alquiler_importe"], "alquiler_importe")
                                             if "alquiler_importe" in crudo else None))
-        return Contrato(site, PrecioContrato(_por_periodo(precios["energia_eur_kwh"], "precios.energia_eur_kwh"),
-                                             _por_periodo(precios["potencia_eur_kw_anio"],
-                                                          "precios.potencia_eur_kw_anio")),
-                        Periodo(inicio, fin))
+        return Contrato(site, PrecioContrato(energia, precio_potencia), Periodo(inicio, fin))
     except KeyError as e:
         raise ErrorContrato(f"falta el campo {e.args[0]}") from None
     except TypeError:

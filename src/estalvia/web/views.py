@@ -129,12 +129,19 @@ def ahorro(request):
         if all(pedido.values()):
             ctx["pedido"] = pedido
             try:
-                ctx["evaluacion"] = evaluar_habito(*args, Habito(pedido["origen"], pedido["destino"],
-                                                                 Decimal(pedido["kwh"].replace(",", "."))))
+                kwh = Decimal(pedido["kwh"].replace(",", "."))
             except InvalidOperation:
                 ctx["error_habito"] = "los kWh deben ser un número"
-            except HabitoImposible as e:
-                ctx["error_habito"] = str(e)
+            else:
+                try:
+                    ev = evaluar_habito(*args, Habito(pedido["origen"], pedido["destino"], kwh))
+                    anual = ev.ahorro_anual_orientativo
+                    ctx["evaluacion"] = ev
+                    ctx["filas"] = [(pct, a, anual[pct]) for pct, a in ev.ahorro.items()]
+                except HabitoImposible as e:
+                    ctx["error_habito"] = str(e)
     except (FaltaDato, EngineError) as e:
         ctx["aviso"] = f"No se puede calcular: {e}"
+    except (ValueError, ArithmeticError):
+        ctx["aviso"] = "No se puede calcular con los datos del contrato y del consumo; revisa el contrato."
     return render(request, "web/ahorro.html", ctx)

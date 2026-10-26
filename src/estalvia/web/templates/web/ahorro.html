@@ -28,11 +28,11 @@
   <h2>Tu hábito: {{ evaluacion.habito.kwh|numero }} kWh de {{ evaluacion.habito.origen }} a {{ evaluacion.habito.destino }}</h2>
   <table>
     <thead><tr><th>Parte del cambio</th><th>Ahorro del periodo</th><th>Ahorro anual orientativo</th></tr></thead>
-    <tbody>{% for pct, a in evaluacion.ahorro.items %}
-      <tr><td>{{ pct }} %</td><td>{{ a|eur }}</td><td>{% for p, anual in evaluacion.ahorro_anual_orientativo.items %}{% if p == pct %}{{ anual|eur }}{% endif %}{% endfor %}</td></tr>
+    <tbody>{% for pct, a, anual in filas %}
+      <tr><td>{{ pct }} %</td><td>{{ a|eur }}</td><td>{{ anual|eur }}</td></tr>
     {% endfor %}</tbody>
   </table>
-  <p>Confianza: <strong>{{ evaluacion.confianza }}</strong>. El ahorro anual es solo orientativo: extrapola el periodo facturado y no mira otras estaciones. Es informativo y supone que el cambio es posible en la planta.</p>
+  <p>Confianza: <strong>{{ evaluacion.confianza }}</strong>. El ahorro anual es solo orientativo: extrapola el periodo facturado y no mira otras estaciones. Es informativo, no garantiza ningún ahorro y supone que el cambio es posible en la planta.</p>
   {% endif %}
 </section>
 

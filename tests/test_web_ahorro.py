@@ -9,6 +9,7 @@ from decimal import Decimal as D
 from pathlib import Path
 
 import django
+import pytest
 
 CLAVE_WEB = "contrasena-de-prueba-no-real"
 _TMP = Path(tempfile.mkdtemp())
@@ -96,3 +97,23 @@ def test_sin_contrato_la_pagina_lo_dice_y_no_inventa_nada():
 @override_settings(**{**CONFIG, "DATOS_CSV": str(_TMP / "no-existe.csv")})
 def test_sin_consumo_legible_la_pagina_lo_dice():
     assert "consumo" in sesion().get("/ahorro/").content.decode()
+
+
+def _contrato_con(cambio: str):
+    ruta = _TMP / "malo.yaml"
+    ruta.write_text(CONTRATO.read_text(encoding="utf-8") + cambio, encoding="utf-8")
+    return str(ruta)
+
+
+
+@pytest.mark.parametrize("texto", [
+    "tarifa: 9.9XX\n",
+    'precios: {energia_eur_kwh: {P1: "NaN", P2: "0.1", P3: "0.1"}, potencia_eur_kw_anio: {P1: "30"}}\n',
+    'potencia_contratada_kw: {P1: "1e999"}\n', "periodo: {inicio: 2026-06-08, fin: 9999-12-31}\n",
+    "periodo: {inicio: 2026-06-08 10:00:00, fin: 2026-06-08}\n", "periodo: {inicio: 2026-06-09, fin: 2026-06-08}\n",
+    'precios: {energia_eur_kwh: {P1: "-5", P2: "0.1", P3: "0.1"}, potencia_eur_kw_anio: {P1: "30"}}\n',
+    "tarifa: 3.0TD\n"])
+def test_un_contrato_malo_se_explica_con_200_y_nunca_da_500(texto):
+    with override_settings(**{**CONFIG, "CONTRATO": _contrato_con(texto)}):
+        r = sesion().get("/ahorro/")
+    assert r.status_code == 200 and "aviso" in r.content.decode() and "Traceback" not in r.content.decode()
