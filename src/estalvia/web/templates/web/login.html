@@ -1,0 +1,11 @@
+{% extends "web/base.html" %}
+{% block titulo %}Acceso{% endblock %}
+{% block contenido %}
+<h1>Acceso</h1>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+<form method="post">
+  {% csrf_token %}
+  <label>Contraseña <input type="password" name="password" autocomplete="current-password" required autofocus></label>
+  <button type="submit">Entrar</button>
+</form>
+{% endblock %}

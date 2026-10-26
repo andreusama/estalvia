@@ -1,0 +1,12 @@
+{% extends "web/base.html" %}
+{% block titulo %}Curva horaria{% endblock %}
+{% block contenido %}
+<h1>Consumo medio por hora</h1>
+{% if aviso %}<p class="aviso">{{ aviso }}</p>{% endif %}
+{% if datos %}
+<canvas id="curva" role="img" aria-label="kWh medios por hora del día, laborables y fines de semana" height="120"></canvas>
+{{ datos|json_script:"datos-curva" }}
+<script src="/static/vendor/chart.umd.js"></script>
+<script src="/static/js/curva.js"></script>
+{% endif %}
+{% endblock %}

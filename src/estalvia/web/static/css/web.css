@@ -1,0 +1,6 @@
+:root { --fondo: #fff; --texto: #1c1c1c; --error: #a51d2d; }
+@media (prefers-color-scheme: dark) { :root { --fondo: #1c1c1c; --texto: #eee; --error: #ff7b63; } }
+body { background: var(--fondo); color: var(--texto); font-family: system-ui, sans-serif; margin: 0; }
+main { max-width: 56rem; margin: 0 auto; padding: 1rem 16px; }
+.error { color: var(--error); }
+input, button { font: inherit; padding: .4rem .6rem; }
