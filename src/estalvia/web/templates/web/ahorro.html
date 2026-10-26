@@ -1,0 +1,48 @@
+{% extends "web/base.html" %}
+{% load formatos %}
+{% block titulo %}Ahorro por hábito{% endblock %}
+{% block contenido %}
+<h1>Ahorro por hábito</h1>
+<nav><a href="/">Curva horaria</a></nav>
+{% if aviso %}<p class="aviso">{{ aviso }}</p>{% endif %}
+{% if base %}
+<section id="resultados">
+  <h2>Línea base</h2>
+  <p>Factura recalculada con el consumo real: <strong>{{ base.total|eur }}</strong></p>
+  <table>
+    <thead><tr><th>Concepto</th><th>Importe</th></tr></thead>
+    <tbody>{% for l in base.lineas %}<tr><td>{{ l.concepto }}</td><td>{{ l.importe|eur }}</td></tr>{% endfor %}</tbody>
+  </table>
+
+  <h2>Hábitos candidatos</h2>
+  <p>Ahorro de mover {{ kwh_candidato|numero }} kWh de un periodo a otro, del que más ahorra al que menos.</p>
+  <table>
+    <thead><tr><th>Mover de</th><th>A</th><th>Ahorro</th><th></th></tr></thead>
+    <tbody>{% for c in candidatos %}
+      <tr data-habito="{{ c.origen }}-{{ c.destino }}"><td>{{ c.origen }}</td><td>{{ c.destino }}</td>
+        <td>{{ c.ahorro_por_kwh|eur }}</td><td>{% if c.ahorro_por_kwh < 0 %}No conviene{% endif %}</td></tr>
+    {% endfor %}</tbody>
+  </table>
+
+  {% if evaluacion %}
+  <h2>Tu hábito: {{ evaluacion.habito.kwh|numero }} kWh de {{ evaluacion.habito.origen }} a {{ evaluacion.habito.destino }}</h2>
+  <table>
+    <thead><tr><th>Parte del cambio</th><th>Ahorro del periodo</th><th>Ahorro anual orientativo</th></tr></thead>
+    <tbody>{% for pct, a in evaluacion.ahorro.items %}
+      <tr><td>{{ pct }} %</td><td>{{ a|eur }}</td><td>{% for p, anual in evaluacion.ahorro_anual_orientativo.items %}{% if p == pct %}{{ anual|eur }}{% endif %}{% endfor %}</td></tr>
+    {% endfor %}</tbody>
+  </table>
+  <p>Confianza: <strong>{{ evaluacion.confianza }}</strong>. El ahorro anual es solo orientativo: extrapola el periodo facturado y no mira otras estaciones. Es informativo y supone que el cambio es posible en la planta.</p>
+  {% endif %}
+</section>
+
+<form method="get" action="/ahorro/">
+  <h2>Prueba tu hábito</h2>
+  {% if error_habito %}<p class="error" role="alert">{{ error_habito }}</p>{% endif %}
+  <label>Mover de <select name="origen">{% for p in periodos %}<option{% if pedido.origen == p %} selected{% endif %}>{{ p }}</option>{% endfor %}</select></label>
+  <label>a <select name="destino">{% for p in periodos %}<option{% if pedido.destino == p %} selected{% endif %}>{{ p }}</option>{% endfor %}</select></label>
+  <label>kWh del periodo <input name="kwh" inputmode="decimal" value="{{ pedido.kwh }}" required></label>
+  <button type="submit">Calcular</button>
+</form>
+{% endif %}
+{% endblock %}

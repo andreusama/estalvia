@@ -2,7 +2,7 @@
 import hmac
 import time
 from collections import defaultdict
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from django.conf import settings
@@ -10,7 +10,17 @@ from django.http import FileResponse, Http404
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
+from estalvia.analysis.habito import KWH_CANDIDATO, Habito, HabitoImposible, candidatos, evaluar_habito
+from estalvia.analysis.nucleo import FaltaDato, linea_base
+from estalvia.engine.errors import EngineError
+from estalvia.engine.periods import Calendario
+from estalvia.engine.rules import RuleSet
+from estalvia.extraction.schema import PERIODOS_ENERGIA
 from estalvia.ingestion.hourly import IngestError, ingest_hourly
+
+from .contrato import ErrorContrato, cargar_contrato
+
+RAIZ = Path(__file__).parents[3]
 
 BLOQUEO_FALLOS = 5
 BLOQUEO_SEGUNDOS = 60
@@ -82,3 +92,49 @@ def estatico(request, nombre):
     if not ruta.is_file():
         raise Http404
     return FileResponse(ruta.open("rb"), content_type=tipo)
+
+
+def _cargar_reglas():
+    return RuleSet([r for f in sorted((RAIZ / "rules").glob("*.yaml")) for r in RuleSet.from_yaml(f).rules])
+
+
+def ahorro(request):
+    """Línea base, hábitos candidatos y, si se pide, un hábito propio. Todo importe sale del motor."""
+    if not request.session.get("autenticado"):
+        return redirect("/login/")
+    ctx: dict = {}
+    if not settings.CONTRATO:
+        ctx["aviso"] = "Falta ESTALVIA_CONTRATO en .env: la ruta del YAML con los datos de la factura."
+        return render(request, "web/ahorro.html", ctx)
+    if not settings.DATOS_CSV:
+        ctx["aviso"] = "Falta ESTALVIA_DATOS_CSV en .env: la ruta de un CSV de consumo horario."
+        return render(request, "web/ahorro.html", ctx)
+    try:
+        contrato = cargar_contrato(settings.CONTRATO)
+        ingesta = ingest_hourly(Path(settings.DATOS_CSV).read_bytes(), settings.DATOS_LECTOR)
+    except ErrorContrato as e:
+        ctx["aviso"] = f"Contrato: {e}"
+        return render(request, "web/ahorro.html", ctx)
+    except (OSError, IngestError):
+        ctx["aviso"] = "No se pudo leer el CSV de consumo (ruta o formato)."
+        return render(request, "web/ahorro.html", ctx)
+    reglas, calendario = _cargar_reglas(), Calendario.desde_directorio(RAIZ / "rules/calendar")
+    args = (contrato.site, ingesta, calendario, reglas, contrato.precios, contrato.periodo)
+    try:
+        ctx["base"] = linea_base(*args)
+        ctx["candidatos"] = candidatos(*args)
+        ctx["kwh_candidato"] = KWH_CANDIDATO
+        ctx["periodos"] = PERIODOS_ENERGIA[contrato.site.tarifa]
+        pedido = {k: request.GET.get(k, "").strip() for k in ("origen", "destino", "kwh")}
+        if all(pedido.values()):
+            ctx["pedido"] = pedido
+            try:
+                ctx["evaluacion"] = evaluar_habito(*args, Habito(pedido["origen"], pedido["destino"],
+                                                                 Decimal(pedido["kwh"].replace(",", "."))))
+            except InvalidOperation:
+                ctx["error_habito"] = "los kWh deben ser un número"
+            except HabitoImposible as e:
+                ctx["error_habito"] = str(e)
+    except (FaltaDato, EngineError) as e:
+        ctx["aviso"] = f"No se puede calcular: {e}"
+    return render(request, "web/ahorro.html", ctx)

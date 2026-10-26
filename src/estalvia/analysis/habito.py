@@ -18,6 +18,7 @@ from estalvia.ingestion.hourly import Ingesta
 
 PORCENTAJES = (25, 50, 100)
 CENT = Decimal("0.01")
+KWH_CANDIDATO = Decimal(1)  # lo que se mueve para ordenar los candidatos
 Confianza = Literal["alta", "media", "baja"]
 
 
@@ -90,3 +91,31 @@ def evaluar_habito(site: SiteParams, ingesta: Ingesta, calendario: Calendario, r
     confianza, meses = _confianza(ingesta, periodo)
     return EvaluacionHabito(habito, desglose(site, consumo, reglas, precios, periodo), escenarios, confianza,
                             meses, len(periodo.dias()))
+
+
+@dataclass(frozen=True)
+class Candidato:
+    origen: str
+    destino: str
+    ahorro_por_kwh: Decimal  # ahorro de mover 1 kWh de origen a destino; negativo = no conviene
+
+
+def candidatos(site: SiteParams, ingesta: Ingesta, calendario: Calendario, reglas: RuleSet,
+               precios: PrecioContrato, periodo: Periodo) -> list[Candidato]:
+    """Todos los pares origen->destino con al menos 1 kWh en el origen, del que más ahorra al que menos.
+    Se mide el ahorro de mover 1 kWh: no se supone cuánto puede mover el cliente."""
+    consumo = consumo_por_periodo(site, ingesta, calendario, periodo)
+    base = desglose(site, consumo, reglas, precios, periodo)
+    uno = KWH_CANDIDATO
+    lista = []
+    for origen in PERIODOS_ENERGIA[site.tarifa]:
+        if consumo.get(origen, Decimal(0)) < uno:
+            continue
+        for destino in PERIODOS_ENERGIA[site.tarifa]:
+            if destino == origen:
+                continue
+            nuevo = dict(consumo)
+            nuevo[origen] = consumo[origen] - uno
+            nuevo[destino] = consumo.get(destino, Decimal(0)) + uno
+            lista.append(Candidato(origen, destino, base.total - desglose(site, nuevo, reglas, precios, periodo).total))
+    return sorted(lista, key=lambda c: (-c.ahorro_por_kwh, c.origen, c.destino))

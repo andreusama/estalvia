@@ -16,7 +16,7 @@ os.environ.update({"DJANGO_SETTINGS_MODULE": "estalvia.web.settings", "ESTALVIA_
 django.setup()
 
 from django.core.management import CommandError, call_command  # noqa: E402
-from django.test import Client  # noqa: E402
+from django.test import Client, override_settings  # noqa: E402
 
 
 def cliente(**kw):
@@ -33,6 +33,7 @@ def test_sin_sesion_se_redirige_al_login():
     assert r.status_code == 302 and r["Location"].startswith("/login/")
 
 
+@override_settings(DATOS_CSV=str(CSV), DATOS_LECTOR="fecha_hora_kwh", WEB_PASSWORD=CLAVE_WEB)
 def test_con_la_contrasena_correcta_se_ve_la_curva_horaria_y_con_otra_no():
     c, r = entrar()
     assert r.status_code == 302

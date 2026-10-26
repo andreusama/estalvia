@@ -22,6 +22,7 @@ def _exigir(nombre: str, minimo: int) -> str:
 SECRET_KEY = _exigir("ESTALVIA_WEB_SECRET", 32)
 WEB_PASSWORD = _exigir("ESTALVIA_WEB_PASSWORD", 12)
 DATOS_CSV = _ENV.get("ESTALVIA_DATOS_CSV", "")
+CONTRATO = _ENV.get("ESTALVIA_CONTRATO", "")
 DATOS_LECTOR = _ENV.get("ESTALVIA_DATOS_LECTOR", "fecha_hora_kwh")
 
 DEBUG = False
