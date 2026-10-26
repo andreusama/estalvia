@@ -61,9 +61,9 @@ def test_el_formulario_exige_token_csrf():
 def test_cabeceras_de_seguridad_y_csp_estricta_sin_dominios_externos():
     c, _ = entrar()
     r = c.get("/")
-    csp = r["Content-Security-Policy"]
-    assert "default-src 'none'" in csp and "script-src 'self'" in csp
-    assert "unsafe-inline" not in csp and "unsafe-eval" not in csp and "http" not in csp
+    assert r["Content-Security-Policy"] == (
+        "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; "
+        "base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
     assert r["X-Content-Type-Options"] == "nosniff" and r["Referrer-Policy"] == "no-referrer"
     assert r["X-Frame-Options"] == "DENY" and "no-store" in r["Cache-Control"]
 
@@ -94,6 +94,11 @@ def test_runserver_rechaza_cualquier_direccion_que_no_sea_local(direccion):
         call_command("runserver", direccion)
 
 
+def test_runserver_rechaza_ipv6():
+    with pytest.raises(CommandError, match="127.0.0.1"):
+        call_command("runserver", "8000", use_ipv6=True)
+
+
 def test_no_hay_modo_debug_ni_base_de_datos():
     from django.conf import settings
     assert settings.DEBUG is False
@@ -105,3 +110,10 @@ def test_chart_js_es_el_fichero_exacto_de_npm_anotado_en_vendor():
     vendor = Path(__file__).parents[1] / "src/estalvia/web/static/vendor"
     nota = (vendor / "VENDOR.md").read_text(encoding="utf-8")
     assert hashlib.sha256((vendor / "chart.umd.js").read_bytes()).hexdigest() in nota
+
+
+def test_salir_cierra_la_sesion_solo_por_post():
+    c, _ = entrar()
+    assert c.get("/logout/").status_code == 405
+    assert c.post("/logout/").status_code == 302
+    assert c.get("/").status_code == 302

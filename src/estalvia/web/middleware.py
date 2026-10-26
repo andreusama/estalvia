@@ -1,5 +1,5 @@
 """Cabeceras de seguridad de cada respuesta: CSP estricta y nada de caché para lo que lleva datos."""
-CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "
+CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; "
        "base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
 
 

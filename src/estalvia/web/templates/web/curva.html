@@ -2,6 +2,7 @@
 {% block titulo %}Curva horaria{% endblock %}
 {% block contenido %}
 <h1>Consumo medio por hora</h1>
+<form method="post" action="/logout/">{% csrf_token %}<button type="submit">Salir</button></form>
 {% if aviso %}<p class="aviso">{{ aviso }}</p>{% endif %}
 {% if datos %}
 <canvas id="curva" role="img" aria-label="kWh medios por hora del día, laborables y fines de semana" height="120"></canvas>

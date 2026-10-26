@@ -41,6 +41,12 @@ def entrar(request):
     return render(request, "web/login.html", {})
 
 
+@require_http_methods(["POST"])
+def salir(request):
+    request.session.flush()
+    return redirect("/login/")
+
+
 def _media_por_hora(lecturas, filtro) -> list[float | None]:
     """kWh medios por hora local del día. Solo para dibujar: no es un importe."""
     sumas, cuentas = defaultdict(Decimal), defaultdict(int)

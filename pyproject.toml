@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Copiloto energético para pymes agroalimentarias (MVP)"
 # TDD pide Python 3.12+ (VERIFICAR al iniciar). El código es compatible con 3.10 para el entorno local actual.
 requires-python = ">=3.10"
-dependencies = ["pydantic>=2", "pyyaml", "anthropic==2.3.0", "Django>=5.2,<5.3"]
+dependencies = ["pydantic>=2", "pyyaml", "anthropic==2.3.0", "Django==5.2.18"]
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov", "hypothesis", "ruff"]
