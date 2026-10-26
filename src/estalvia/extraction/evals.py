@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -217,6 +218,10 @@ def principal(argv: list[str] | None = None, *, entorno: dict[str, str] | None =
     ap.add_argument("--esfuerzo", default=Ajustes.esfuerzo)
     ap.add_argument("--guardar", help="dónde guardar el informe (por defecto data/private/evals/ aquí)")
     args = ap.parse_args(argv)
+    try:  # cada línea sale al momento aunque la salida no sea un terminal: una ejecución larga no parece colgada
+        sys.stdout.reconfigure(line_buffering=True)
+    except AttributeError:
+        pass
     if not args.real or args.presupuesto_usd is None:
         print("Las evals con la API real son opt-in: usa --real --presupuesto-usd IMPORTE")
         return 2
