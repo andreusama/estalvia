@@ -60,6 +60,8 @@ def linea_base(site: SiteParams, ingesta: Ingesta, calendario: Calendario, regla
     horas = sum(1 for x in ingesta.lecturas if desde <= x.instante_utc < hasta)
     if horas != horas_esperadas:
         raise FaltaDato(f"consumo incompleto en el periodo facturado: {horas} de {horas_esperadas} horas")
+    if any(x.kwh < 0 for x in ingesta.lecturas if desde <= x.instante_utc < hasta):
+        raise FaltaDato("consumo negativo en el periodo facturado")
     totales = ingesta.totales_por_periodo(calendario, tarifa=site.tarifa, desde=desde, hasta=hasta)
     for p in sorted(totales):
         if p not in precios.energia_eur_kwh:

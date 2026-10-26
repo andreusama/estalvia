@@ -3,7 +3,7 @@ Un domingo entero es P3 (2.0TD), así que los importes se calculan a mano:
   potencia: 4 kW x 30 EUR/kW/año / 365 = 0,3288 -> 0,33 (P1) ; 4 kW x 3 / 365 = 0,0329 -> 0,03 (P2)
   energía: 24 kWh x 0,10 = 2,40 ; base 2,76 ; IE 5,11269632 % = 0,1411 -> 0,14 ; sin IVA 2,90 ; total 3,51
   escenario con 12 kWh: energía 1,20 ; base 1,56 ; IE 0,0798 -> 0,08 ; sin IVA 1,64 ; total 1,98 ; ahorro 1,53"""
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal as D
 from pathlib import Path
 
@@ -56,3 +56,23 @@ def test_el_ahorro_es_la_diferencia_entre_linea_base_y_escenario():
     assert (c.base.total, c.escenario.total, c.ahorro) == (D("3.51"), D("1.98"), D("1.53"))
     assert comparar(SITIO, consumo_del_domingo(), consumo_del_domingo(), CALENDARIO, REGLAS, PRECIOS,
                     DOMINGO).ahorro == D(0)
+
+
+def test_un_dia_de_25_horas_por_cambio_de_hora_se_calcula_con_sus_25_horas():
+    # 2026-10-25 (domingo, 25 h): 25 kWh en P3 = 2,50 ; base 2,86 ; IE 0,1462 -> 0,15 ; sin IVA 3,01 ; total 3,64
+    inicio = datetime(2026, 10, 24, 22, 0, tzinfo=timezone.utc)
+    filas = "".join(f"{(inicio + timedelta(hours=h)).isoformat()},1,0,real\n" for h in range(25))
+    ingesta = ingest_hourly(("instante,kwh,kvarh,tipo\n" + filas).encode(), "interno")
+    dia = Periodo(date(2026, 10, 25), date(2026, 10, 25))
+    assert linea_base(SITIO, ingesta, CALENDARIO, REGLAS, PRECIOS, dia).total == D("3.64")
+
+
+def test_sin_precio_de_potencia_falta_el_dato():
+    sin_potencia = PrecioContrato(energia_eur_kwh=PRECIOS.energia_eur_kwh, potencia_eur_kw_anio={"P1": D(30)})
+    with pytest.raises(FaltaDato, match="precio de potencia.*P2"):
+        base(consumo_del_domingo(), sin_potencia)
+
+
+def test_un_consumo_negativo_no_se_calcula():
+    with pytest.raises(FaltaDato, match="negativo"):
+        base(consumo_del_domingo("-1"))
