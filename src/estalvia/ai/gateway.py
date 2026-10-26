@@ -6,12 +6,14 @@ salida va restringida a un esquema JSON. Ninguna clave se imprime, se guarda en 
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
 from typing import Literal, Protocol
 
 import anthropic
+
+from estalvia.ai.masking import TextoEnmascarado
 
 BETA_FALLBACKS = "server-side-fallback-2026-07-01"
 # USD por millón de tokens (entrada, salida), de la tabla de la skill claude-api. VERIFICAR contra la página de
@@ -35,23 +37,37 @@ class ErrorConfig(Exception):
     """Falta o es inválida una variable de configuración."""
 
 
+Esfuerzo = Literal["low", "medium", "high", "xhigh", "max"]
+
+
 @dataclass(frozen=True)
 class Peticion:
+    """Lo que se envía a la IA. El texto de la factura es un campo aparte y solo admite texto enmascarado; el
+    `repr` no lo muestra (acabaría en registros y trazas)."""
     modelo: str
-    esfuerzo: Literal["low", "medium", "high", "xhigh", "max"]
+    esfuerzo: Esfuerzo
     max_tokens: int
     sistema: str
-    usuario: str
-    esquema: dict
+    texto: TextoEnmascarado = field(repr=False)
+    esquema: dict = field(repr=False)
+
+    def __post_init__(self):
+        if not isinstance(self.texto, TextoEnmascarado):
+            raise TypeError("el texto debe estar enmascarado: crear con sellar() antes de enviarlo a la IA")
+
+    @property
+    def usuario(self) -> str:
+        return f"<factura>\n{self.texto}\n</factura>"
 
 
 @dataclass(frozen=True)
 class RespuestaIA:
     parada: Literal["fin", "rechazo", "truncada"]
-    texto: str
+    texto: str = field(repr=False)
     tokens_entrada: int
     tokens_salida: int
     motivo: str | None = None
+    modelo: str | None = None  # el que contestó: con `fallbacks` puede no ser el pedido
 
 
 class ClienteIA(Protocol):
@@ -78,23 +94,25 @@ class ClienteAnthropic:
     def __init__(self, sdk: anthropic.Anthropic, *, presupuesto_usd: Decimal):
         self._sdk = sdk
         self._presupuesto = presupuesto_usd
+        self._comprometido = Decimal(0)  # suma de los peores casos de las llamadas hechas
 
     def __repr__(self) -> str:
         return "ClienteAnthropic(<oculto>)"
 
     @classmethod
     def desde_entorno(cls, entorno: dict[str, str] | None = None, *, presupuesto_usd: Decimal) -> ClienteAnthropic:
-        entorno = os.environ if entorno is None else entorno
+        entorno = leer_env() if entorno is None else entorno
         clave = entorno.get("ANTHROPIC_API_KEY")
         if not clave:
             raise ErrorConfig("falta ANTHROPIC_API_KEY (ponla en el fichero .env, nunca en el código ni el chat)")
-        return cls(anthropic.Anthropic(api_key=clave), presupuesto_usd=presupuesto_usd)
+        return cls(anthropic.Anthropic(api_key=clave, max_retries=0), presupuesto_usd=presupuesto_usd)
 
     def completar(self, p: Peticion) -> RespuestaIA:
         estimacion = estimar_coste(p)
-        if estimacion.usd_maximo > self._presupuesto:
+        if self._comprometido + estimacion.usd_maximo > self._presupuesto:
             raise ErrorIA(f"el coste máximo estimado ({estimacion.usd_maximo} USD) supera el presupuesto aprobado "
-                          f"({self._presupuesto} USD)", permanente=True)
+                          f"({self._presupuesto} USD, ya comprometidos {self._comprometido})", permanente=True)
+        self._comprometido += estimacion.usd_maximo  # aunque la llamada falle: no se sabe lo que se facturó
         try:
             r = self._sdk.beta.messages.create(
                 model=p.modelo, max_tokens=p.max_tokens, system=p.sistema,
@@ -110,10 +128,20 @@ class ClienteAnthropic:
         entrada, salida = r.usage.input_tokens, r.usage.output_tokens
         if r.stop_reason == "refusal":
             detalle = getattr(r, "stop_details", None)
-            return RespuestaIA("rechazo", "", entrada, salida, motivo=getattr(detalle, "category", None))
+            return RespuestaIA("rechazo", "", entrada, salida, motivo=getattr(detalle, "category", None),
+                               modelo=r.model)
         texto = "".join(b.text for b in r.content if b.type == "text")
         return RespuestaIA("fin" if r.stop_reason in ("end_turn", "stop_sequence") else "truncada",
-                           texto, entrada, salida)
+                           texto, entrada, salida, modelo=r.model)
+
+
+class Entorno(dict):
+    """Variables de configuración; el `repr` no muestra los valores (llevan claves)."""
+
+    def __repr__(self) -> str:
+        return f"Entorno(<{len(self)} variables ocultas>)"
+
+    __str__ = __repr__
 
 
 def leer_env(ruta: str | Path = ".env", *, entorno: dict[str, str] | None = None) -> dict[str, str]:
@@ -130,7 +158,7 @@ def leer_env(ruta: str | Path = ".env", *, entorno: dict[str, str] | None = None
             if len(valor) >= 2 and valor[0] == valor[-1] and valor[0] in "\"'":
                 valor = valor[1:-1]
             valores[nombre] = valor
-    return {**valores, **entorno}
+    return Entorno({**valores, **entorno})
 
 
 def clave_enmascarado(entorno: dict[str, str]) -> bytes:

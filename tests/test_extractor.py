@@ -174,8 +174,61 @@ def test_la_peticion_lleva_el_texto_enmascarado_y_una_instruccion_de_tratarlo_co
     assert "Ana" not in p.usuario and "ES0000000000000000AA" not in p.usuario
     assert str(TEXTO) in p.usuario
     assert "datos" in p.sistema.lower() and "instrucciones" in p.sistema.lower()
-    assert not hasattr(p, "temperature") and not hasattr(p, "top_p") and not hasattr(p, "tool_choice")
     assert p.esquema["additionalProperties"] is False
+
+
+def _anulable(esquema) -> bool:
+    tipo = esquema.get("type")
+    return "null" in tipo if isinstance(tipo, list) else False
+
+
+def test_ningun_dato_impreso_es_obligatorio_en_el_esquema_para_no_forzar_a_inventar():
+    conceptos = ESQUEMA_SALIDA["properties"]["conceptos"]["items"]["properties"]
+    desglose = ESQUEMA_SALIDA["properties"]["desglose_regulado"]["items"]["properties"]
+    lecturas = ESQUEMA_SALIDA["properties"]["lecturas_contador"]["properties"]["P1"]["properties"]
+    for grupo, campos in ((conceptos, ("cantidad", "precio", "importe")), (desglose, ("importe",)),
+                          (lecturas, ("inicial", "final"))):
+        for campo in campos:
+            assert _anulable(grupo[campo]), campo
+
+
+def test_un_concepto_con_importe_nulo_va_a_revision_en_lugar_de_inventarse():
+    mal = [{"nombre": "energia", "cantidad": "200", "precio": "0.5", "importe": None}]
+    r = extraer(ClienteFalso(ok(conceptos=mal), ok(conceptos=mal)))
+    assert r.en_revision and any("importe" in p for p in r.problemas)
+
+
+def test_el_resultado_registra_el_modelo_que_contesto_y_su_repr_no_muestra_la_factura():
+    r = extraer(ClienteFalso(RespuestaIA("fin", json.dumps(salida()), 100, 50, modelo="claude-opus-4-8")))
+    assert r.modelo == "claude-opus-4-8" and "127.05" not in repr(r)
+
+
+def test_cache_en_disco_no_escribe_a_traves_de_enlaces_simbolicos(tmp_path):
+    fuera = tmp_path / "fuera"
+    fuera.mkdir()
+    (tmp_path / "cache").symlink_to(fuera)
+    with pytest.raises(OSError):
+        CacheEnDisco(tmp_path / "cache").set("k", "x")
+    assert list(fuera.iterdir()) == []
+
+
+def test_cache_en_disco_corrige_permisos_de_un_fichero_existente(tmp_path):
+    carpeta = tmp_path / "cache"
+    carpeta.mkdir()
+    (carpeta / "k.json").write_text("viejo")
+    (carpeta / "k.json").chmod(0o644)
+    CacheEnDisco(carpeta).set("k", "nuevo")
+    assert (carpeta / "k.json").read_text() == "nuevo" and (carpeta / "k.json").stat().st_mode & 0o777 == 0o600
+
+
+def test_una_entrada_de_cache_corrupta_se_ignora_y_se_vuelve_a_pedir():
+    cache = CacheEnMemoria()
+    cliente = ClienteFalso(ok())
+    extraer(ClienteFalso(ok()), cache=cache)
+    clave = next(iter(cache._datos))
+    cache._datos[clave] = "{ corrupto"
+    r = extraer(cliente, cache=cache)
+    assert not r.en_revision and len(cliente.peticiones) == 1
 
 
 def test_el_esquema_de_salida_coincide_con_el_modelo_y_con_la_salida_de_ejemplo():

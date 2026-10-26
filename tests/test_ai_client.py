@@ -15,9 +15,12 @@ from estalvia.ai.gateway import (
     estimar_coste,
     leer_env,
 )
+from estalvia.ai.masking import sellar
 
-PETICION = Peticion(modelo="claude-opus-5-5", esfuerzo="medium", max_tokens=16000, sistema="s", usuario="u",
-                    esquema={"type": "object", "additionalProperties": False, "properties": {}, "required": []})
+CLAVE = b"clave-de-prueba-no-real"
+ESQUEMA = {"type": "object", "additionalProperties": False, "properties": {}, "required": []}
+PETICION = Peticion(modelo="claude-opus-5-5", esfuerzo="medium", max_tokens=16000, sistema="s",
+                    texto=sellar("u", clave=CLAVE), esquema=ESQUEMA)
 
 
 class SdkFalso:
@@ -34,6 +37,7 @@ class SdkFalso:
 
 
 def respuesta(stop="end_turn", bloques=None, **extra):
+    extra.setdefault("model", "claude-opus-5-5")
     bloques = bloques if bloques is not None else [SimpleNamespace(type="text", text='{"a": 1}')]
     return SimpleNamespace(stop_reason=stop, content=bloques, usage=SimpleNamespace(input_tokens=10, output_tokens=5),
                            **extra)
@@ -50,9 +54,9 @@ def test_la_peticion_no_lleva_parametros_de_muestreo_ni_tool_choice_y_pide_esfue
     assert not {"temperature", "top_p", "top_k", "tool_choice", "thinking", "tools"} & set(kw)
     assert kw["model"] == "claude-opus-5-5" and kw["max_tokens"] == 16000
     assert kw["output_config"]["effort"] == "medium"
-    assert kw["output_config"]["format"] == {"type": "json_schema", "schema": PETICION.esquema}
+    assert kw["output_config"]["format"] == {"type": "json_schema", "schema": ESQUEMA}
     assert kw["fallbacks"] == "default" and "server-side-fallback-2026-07-01" in kw["betas"]
-    assert kw["system"] == "s" and kw["messages"] == [{"role": "user", "content": "u"}]
+    assert kw["system"] == "s" and kw["messages"] == [{"role": "user", "content": PETICION.usuario}]
 
 
 def test_respuesta_normal_devuelve_el_texto_y_el_uso_ignorando_bloques_de_razonamiento():
@@ -76,13 +80,14 @@ def test_rechazo_sin_detalles_no_falla():
 
 def test_estimacion_de_coste_peor_caso_con_precios_conocidos():
     p = Peticion(modelo="claude-opus-5-5", esfuerzo="medium", max_tokens=16000, sistema="a" * 1000,
-                 usuario="b" * 3000, esquema={})
+                 texto=sellar("b" * 2979, clave=CLAVE), esquema={})
     e = estimar_coste(p)
     assert e.tokens_entrada == 2000 and e.usd_maximo == Decimal("0.328")
 
 
 def test_modelo_sin_precio_conocido_no_se_estima_ni_se_inventa():
-    p = Peticion(modelo="modelo-desconocido", esfuerzo="medium", max_tokens=1, sistema="", usuario="", esquema={})
+    p = Peticion(modelo="modelo-desconocido", esfuerzo="medium", max_tokens=1, sistema="",
+                 texto=sellar("", clave=CLAVE), esquema={})
     with pytest.raises(ErrorIA, match="precio"):
         estimar_coste(p)
 
@@ -132,3 +137,45 @@ def test_clave_de_enmascarado_se_lee_del_entorno_y_exige_longitud_minima():
         clave_enmascarado({})
     with pytest.raises(ErrorConfig, match="corta"):
         clave_enmascarado({"ESTALVIA_MASK_KEY": "corta"})
+
+
+def test_la_peticion_solo_admite_texto_enmascarado_y_su_repr_no_lo_muestra():
+    with pytest.raises(TypeError, match="enmascar"):
+        Peticion(modelo="claude-opus-5-5", esfuerzo="medium", max_tokens=1, sistema="", texto="Ana Ejemplo",
+                 esquema={})
+    p = Peticion(modelo="claude-opus-5-5", esfuerzo="medium", max_tokens=1, sistema="",
+                 texto=sellar("Total factura: 55,95", clave=CLAVE), esquema={})
+    assert "55,95" not in repr(p)
+
+
+def test_la_respuesta_registra_el_modelo_que_contesto_y_su_repr_no_muestra_el_texto():
+    sdk = SdkFalso(respuesta(model="claude-opus-4-8", bloques=[SimpleNamespace(type="text", text="DATOS-SECRETOS")]))
+    r = cliente(sdk).completar(PETICION)
+    assert r.modelo == "claude-opus-4-8" and "DATOS-SECRETOS" not in repr(r)
+
+
+def test_el_presupuesto_es_acumulado_entre_llamadas():
+    sdk = SdkFalso(respuesta())
+    c = cliente(sdk, presupuesto="0.40")
+    c.completar(PETICION)
+    with pytest.raises(ErrorIA, match="presupuesto"):
+        c.completar(PETICION)
+    assert len(sdk.llamadas) == 1
+
+
+def test_el_entorno_no_se_muestra_al_imprimirlo(tmp_path):
+    f = tmp_path / ".env"
+    f.write_text("ANTHROPIC_API_KEY=sk-ant-SECRETO\n", encoding="utf-8")
+    assert "SECRETO" not in repr(leer_env(f, entorno={})) and "SECRETO" not in str(leer_env(f, entorno={}))
+
+
+def test_desde_entorno_sin_argumento_lee_el_fichero_env(tmp_path, monkeypatch):
+    (tmp_path / ".env").write_text("ANTHROPIC_API_KEY=sk-ant-SECRETO\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    assert ClienteAnthropic.desde_entorno(presupuesto_usd=Decimal("1")) is not None
+
+
+def test_el_sdk_no_reintenta_por_su_cuenta_para_que_el_presupuesto_cuente_cada_llamada():
+    c = ClienteAnthropic.desde_entorno({"ANTHROPIC_API_KEY": "sk-ant-SECRETO"}, presupuesto_usd=Decimal("1"))
+    assert c._sdk.max_retries == 0

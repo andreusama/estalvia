@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from estalvia.ai.gateway import ClienteIA, ErrorIA, Peticion
+from estalvia.ai.gateway import ClienteIA, ErrorIA, Esfuerzo, Peticion
 from estalvia.ai.masking import TextoEnmascarado
 from estalvia.extraction.schema import PERIODOS, FacturaExtraida, validar_datos
 
@@ -64,11 +64,12 @@ ESQUEMA_SALIDA = _objeto({
     "potencia_maxima_kw": _por_periodo(TextoONulo),
     "energia_kwh": _por_periodo(TextoONulo),
     "energia_reactiva_kvarh": _por_periodo(TextoONulo),
-    "lecturas_contador": _por_periodo(_objeto({"inicial": Texto, "final": Texto}, nulo=True), nulo=True),
+    "lecturas_contador": _por_periodo(_objeto({"inicial": TextoONulo, "final": TextoONulo}, nulo=True), nulo=True),
     "desglose_regulado": {"type": ["array", "null"],
-                          "items": _objeto({"nombre": Texto, "importe": Texto})},
+                          "items": _objeto({"nombre": Texto, "importe": TextoONulo})},
     "conceptos": {"type": "array",
-                  "items": _objeto({"nombre": Texto, "cantidad": Texto, "precio": Texto, "importe": Texto})},
+                  "items": _objeto({"nombre": Texto, "cantidad": TextoONulo, "precio": TextoONulo,
+                                    "importe": TextoONulo})},
     "impuestos": _objeto({"electrico": TextoONulo, "iva": TextoONulo}),
     "total": TextoONulo,
 })
@@ -91,17 +92,18 @@ def normalizar_salida(datos: dict) -> dict:
 @dataclass(frozen=True)
 class Ajustes:
     modelo: str = "claude-opus-5-5"
-    esfuerzo: str = "medium"  # lo fijarán las evals (#15)
+    esfuerzo: Esfuerzo = "medium"  # lo fijarán las evals (#15)
     max_tokens: int = 16000
 
 
 @dataclass(frozen=True)
 class ResultadoExtraccion:
-    factura: FacturaExtraida | None
+    factura: FacturaExtraida | None = field(repr=False)  # datos de la factura: fuera del repr
     problemas: list[str] = field(default_factory=list)
     tokens_entrada: int = 0
     tokens_salida: int = 0
     desde_cache: bool = False
+    modelo: str | None = None  # el que contestó (con fallbacks puede no ser el pedido)
 
     @property
     def en_revision(self) -> bool:
@@ -136,10 +138,16 @@ class CacheEnDisco:
         return ruta.read_text(encoding="utf-8") if ruta.is_file() else None
 
     def set(self, clave: str, texto: str) -> None:
-        self._carpeta.mkdir(parents=True, exist_ok=True, mode=0o700)
-        fd = os.open(self._carpeta / f"{clave}.json", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        if self._carpeta.is_symlink():
+            raise OSError("la carpeta de la caché es un enlace simbólico; no se escribe a través de él")
+        self._carpeta.mkdir(parents=True, exist_ok=True)
+        self._carpeta.chmod(0o700)
+        # Fichero nuevo y exclusivo con permisos 600, luego se sustituye: nunca queda a medias ni con modos viejos.
+        temporal = self._carpeta / f".{clave}.{os.getpid()}.tmp"
+        fd = os.open(temporal, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(texto)
+        os.replace(temporal, self._carpeta / f"{clave}.json")
 
 
 def _clave_cache(ajustes: Ajustes, texto: str) -> str:
@@ -155,10 +163,11 @@ def extraer_factura(texto: TextoEnmascarado, cliente: ClienteIA, *, ajustes: Aju
     ajustes = ajustes or Ajustes()
     cache = cache if cache is not None else CacheEnMemoria()
     clave = _clave_cache(ajustes, str(texto))
-    peticion = Peticion(ajustes.modelo, ajustes.esfuerzo, ajustes.max_tokens, PROMPT_SISTEMA,
-                        f"<factura>\n{texto}\n</factura>", ESQUEMA_SALIDA)
+    peticion = Peticion(ajustes.modelo, ajustes.esfuerzo, ajustes.max_tokens, PROMPT_SISTEMA, texto,
+                        ESQUEMA_SALIDA)
     problemas: list[str] = []
     entrada = salida = 0
+    modelo = None
     for intento in range(INTENTOS):
         respuesta = cache.get(clave) if intento == 0 else None
         desde_cache = respuesta is not None
@@ -170,10 +179,10 @@ def extraer_factura(texto: TextoEnmascarado, cliente: ClienteIA, *, ajustes: Aju
                 if e.permanente:
                     break
                 continue
-            entrada, salida = entrada + r.tokens_entrada, salida + r.tokens_salida
+            entrada, salida, modelo = entrada + r.tokens_entrada, salida + r.tokens_salida, r.modelo
             if r.parada == "rechazo":
                 return ResultadoExtraccion(None, [f"la IA rechazó la petición ({r.motivo or 'sin motivo'})"],
-                                           entrada, salida)
+                                           entrada, salida, modelo=modelo)
             if r.parada == "truncada":
                 problemas = ["respuesta incompleta: se alcanzó el límite de salida"]
                 continue
@@ -191,5 +200,5 @@ def extraer_factura(texto: TextoEnmascarado, cliente: ClienteIA, *, ajustes: Aju
             continue
         if not desde_cache:
             cache.set(clave, respuesta)
-        return ResultadoExtraccion(factura, encontrados, entrada, salida, desde_cache)
-    return ResultadoExtraccion(None, problemas, entrada, salida)
+        return ResultadoExtraccion(factura, encontrados, entrada, salida, desde_cache, modelo)
+    return ResultadoExtraccion(None, problemas, entrada, salida, modelo=modelo)
