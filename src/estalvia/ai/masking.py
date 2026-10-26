@@ -101,3 +101,20 @@ def enmascarar(texto: str, extra: list[str] | None = None, *, clave: bytes) -> s
     texto = CODIGO_POSTAL_Y_POBLACION.sub("[DATO]", texto)
     texto = TELEFONO.sub("[TELEFONO]", texto)
     return CORREO.sub("[CORREO]", texto)
+
+
+_SELLO = object()
+
+
+class TextoEnmascarado(str):
+    """Texto que ya ha pasado por `enmascarar`. Solo se crea con `sellar`: la pasarela de IA no acepta otro."""
+    __slots__ = ()
+
+    def __new__(cls, valor: str, *, _sello: object = None):
+        if _sello is not _SELLO:
+            raise TypeError("TextoEnmascarado solo se crea con sellar(): el texto debe pasar por enmascarar")
+        return super().__new__(cls, valor)
+
+
+def sellar(texto: str, extra: list[str] | None = None, *, clave: bytes) -> TextoEnmascarado:
+    return TextoEnmascarado(enmascarar(texto, extra, clave=clave), _sello=_SELLO)
