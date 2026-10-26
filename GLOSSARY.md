@@ -37,3 +37,25 @@ _Avoid_: validación (a secas), check
 **Revisión**:
 El estado de una factura que ha fallado una comprobación determinista y espera corrección humana.
 _Avoid_: a revisar (estado técnico), pendiente
+
+### Análisis de ahorro
+
+**Línea base**:
+La factura recalculada por el motor con el consumo real y sin ningún cambio.
+_Avoid_: situación actual, baseline
+
+**Escenario**:
+La factura recalculada por el motor con un cambio concreto respecto a la línea base. El ahorro es la diferencia entre la línea base y el escenario.
+_Avoid_: simulación, caso
+
+**Hábito**:
+Un cambio en cómo se usa la electricidad, expresado como un escenario que el motor puede calcular.
+_Avoid_: recomendación (a secas), medida
+
+**Patrón probable**:
+Hipótesis, sin confirmar, sobre qué consume electricidad en una franja horaria. Solo se convierte en dato cuando el cliente lo confirma.
+_Avoid_: detección, consumo identificado
+
+**Hallazgo**:
+Resultado del análisis con evidencia, ahorro e intervalo. Un hallazgo sin evidencia no llega al informe.
+_Avoid_: conclusión, insight
