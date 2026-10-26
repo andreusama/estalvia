@@ -86,3 +86,92 @@ def test_guardar_texto_rechaza_nombres_que_salen_de_la_carpeta(tmp_path, nombre)
     with pytest.raises(ValueError):
         guardar_texto("x", nombre, raiz=tmp_path)
     assert not any(p.is_file() for p in tmp_path.rglob("*"))
+
+
+def test_guardar_texto_crea_el_fichero_con_permisos_600(tmp_path):
+    destino = guardar_texto("x", "con-permisos", raiz=tmp_path)
+    assert destino.stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.parametrize("nombre", ["a\n", "٣٤٥", "ａｂ", "x" * 101, "a.", "con espacio", "a\x00b"])
+def test_guardar_texto_solo_admite_nombres_ascii_simples(tmp_path, nombre):
+    with pytest.raises(ValueError):
+        guardar_texto("x", nombre, raiz=tmp_path)
+
+
+def test_guardar_texto_no_sobrescribe(tmp_path):
+    guardar_texto("uno", "dup", raiz=tmp_path)
+    with pytest.raises(ErrorTextoPdf, match="ya existe"):
+        guardar_texto("dos", "dup", raiz=tmp_path)
+    assert (tmp_path / "data" / "private" / "dup.txt").read_text() == "uno"
+
+
+def test_guardar_texto_no_escribe_a_traves_de_un_enlace_simbolico_en_la_carpeta(tmp_path):
+    fuera = tmp_path / "fuera"
+    fuera.mkdir()
+    raiz = tmp_path / "repo"
+    (raiz / "data").mkdir(parents=True)
+    (raiz / "data" / "private").symlink_to(fuera)
+    with pytest.raises(ErrorTextoPdf, match="enlace"):
+        guardar_texto("x", "n", raiz=raiz)
+    assert list(fuera.iterdir()) == []
+
+
+def test_guardar_texto_no_escribe_a_traves_de_un_enlace_simbolico_en_el_fichero(tmp_path):
+    carpeta = tmp_path / "data" / "private"
+    carpeta.mkdir(parents=True)
+    objetivo = tmp_path / "objetivo.txt"
+    (carpeta / "v.txt").symlink_to(objetivo)
+    with pytest.raises(ErrorTextoPdf):
+        guardar_texto("x", "v", raiz=tmp_path)
+    assert not objetivo.exists()
+
+
+def test_guardar_texto_errores_del_sistema_son_error_texto_pdf(tmp_path):
+    carpeta = tmp_path / "data" / "private"
+    (carpeta / "d.txt").mkdir(parents=True)
+    with pytest.raises(ErrorTextoPdf):
+        guardar_texto("x", "d", raiz=tmp_path)
+    with pytest.raises(ErrorTextoPdf):
+        guardar_texto("\ud800", "s", raiz=tmp_path)
+
+
+def test_los_mensajes_de_error_no_incluyen_el_nombre_del_fichero(tmp_path):
+    secreto = "Ana-Ejemplo-ES0000000000000000AA"
+    mal = tmp_path / f"{secreto}.pdf"
+    mal.write_bytes(b"no es un pdf")
+    sin_capa = tmp_path / f"{secreto}-2.pdf"
+    sin_capa.write_bytes(pdf_minimo([]))
+    for ruta in (mal, sin_capa, tmp_path / f"{secreto}-3.pdf"):
+        with pytest.raises(ErrorTextoPdf) as e:
+            texto_de_pdf(ruta)
+        assert "Ana" not in str(e.value) and "ES0000" not in str(e.value)
+
+
+def test_un_fichero_sin_cabecera_pdf_se_rechaza_sin_ejecutar_pdftotext(tmp_path, monkeypatch):
+    falso = tmp_path / "x.pdf"
+    falso.write_bytes(b"MZ ejecutable disfrazado")
+
+    def no_debe_ejecutarse(*a, **k):
+        raise AssertionError("no debía ejecutarse pdftotext")
+
+    monkeypatch.setattr("subprocess.run", no_debe_ejecutarse)
+    with pytest.raises(ErrorTextoPdf, match="PDF"):
+        texto_de_pdf(falso)
+
+
+def test_un_pdf_demasiado_grande_se_rechaza(pdf_con_texto, monkeypatch):
+    monkeypatch.setattr("estalvia.extraction.text.TAMANO_MAXIMO_BYTES", 10)
+    with pytest.raises(ErrorTextoPdf, match="tamaño"):
+        texto_de_pdf(pdf_con_texto)
+
+
+def test_tiempo_agotado_da_error_claro(pdf_con_texto, monkeypatch):
+    import subprocess
+
+    def lento(*a, **k):
+        raise subprocess.TimeoutExpired("pdftotext", 1)
+
+    monkeypatch.setattr("subprocess.run", lento)
+    with pytest.raises(ErrorTextoPdf, match="tardó"):
+        texto_de_pdf(pdf_con_texto)
