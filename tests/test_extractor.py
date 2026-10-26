@@ -177,23 +177,33 @@ def test_la_peticion_lleva_el_texto_enmascarado_y_una_instruccion_de_tratarlo_co
     assert p.esquema["additionalProperties"] is False
 
 
-def _anulable(esquema) -> bool:
-    tipo = esquema.get("type")
-    return "null" in tipo if isinstance(tipo, list) else False
+def _uniones(esquema) -> int:
+    """Nodos con `anyOf` o `type` en lista: la API admite como mucho 16 y rechaza la lista junto a `enum`."""
+    if isinstance(esquema, dict):
+        aqui = int("anyOf" in esquema or isinstance(esquema.get("type"), list))
+        return aqui + sum(_uniones(v) for v in esquema.values())
+    if isinstance(esquema, list):
+        return sum(_uniones(v) for v in esquema)
+    return 0
 
 
-def test_ningun_dato_impreso_es_obligatorio_en_el_esquema_para_no_forzar_a_inventar():
-    conceptos = ESQUEMA_SALIDA["properties"]["conceptos"]["items"]["properties"]
-    desglose = ESQUEMA_SALIDA["properties"]["desglose_regulado"]["items"]["properties"]
-    lecturas = ESQUEMA_SALIDA["properties"]["lecturas_contador"]["properties"]["P1"]["properties"]
-    for grupo, campos in ((conceptos, ("cantidad", "precio", "importe")), (desglose, ("importe",)),
-                          (lecturas, ("inicial", "final"))):
-        for campo in campos:
-            assert _anulable(grupo[campo]), campo
+def test_el_esquema_no_tiene_campos_anulables_porque_la_api_limita_las_uniones():
+    assert _uniones(ESQUEMA_SALIDA) == 0
+    tarifa = ESQUEMA_SALIDA["properties"]["tarifa_acceso"]
+    assert tarifa == {"type": "string", "enum": ["2.0TD", "3.0TD", "6.1TD", "otra", ""]}
+
+
+def test_cadena_vacia_significa_no_impreso_y_se_trata_como_campo_ausente():
+    d = normalizar_salida(salida(lecturas_contador=por_periodo(P1={"inicial": "", "final": ""}), cups="",
+                                 desglose_regulado=[]))
+    assert "lecturas_contador" not in d and "cups" not in d and "desglose_regulado" not in d
+    sin_total = ok(total="")
+    r = extraer(ClienteFalso(sin_total, sin_total))
+    assert r.en_revision
 
 
 def test_un_concepto_con_importe_nulo_va_a_revision_en_lugar_de_inventarse():
-    mal = [{"nombre": "energia", "cantidad": "200", "precio": "0.5", "importe": None}]
+    mal = [{"nombre": "energia", "cantidad": "200", "precio": "0.5", "importe": ""}]
     r = extraer(ClienteFalso(ok(conceptos=mal), ok(conceptos=mal)))
     assert r.en_revision and any("importe" in p for p in r.problemas)
 
