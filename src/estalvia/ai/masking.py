@@ -1,57 +1,103 @@
-"""Enmascarado previo al envío de texto al proveedor de IA (TDD sección 9, límite 7; spec #10).
+"""Enmascarado previo al envío de texto al proveedor de IA (TDD sección 9, límite 7; spec #10, ticket #12).
 
 Quita lo que no hace falta para calcular: nombre, dirección, teléfono, correo, NIF, IBAN, números de contrato,
 de factura y de contador. El CUPS se sustituye por un token estable (mismo CUPS y misma clave, mismo token) para
 poder enlazar facturas del mismo suministro; sin la clave el token no se puede invertir.
 
-Límite conocido (VERIFICAR): un nombre o dirección SIN etiqueta en el texto no se encuentra por patrón; el
-llamante debe pasarlo en `extra` si lo conoce. Las cifras de cálculo (kWh, precios, importes, fechas, potencia)
-no se tocan.
+Principio: una cifra de cálculo (kWh, precios, importes, fechas, potencia) nunca se enmascara; ante la duda entre
+dejar un dato personal y borrar una cifra, pesa más la cifra porque su pérdida lleva a Revisión y se ve.
+Por eso las etiquetas genéricas (nombre, contrato, factura...) solo valen con «:» pegado a la etiqueta, y un valor
+que parece una cifra o una fecha no se toca.
+
+Límites conocidos (VERIFICAR con facturas reales): un nombre o dirección SIN etiqueta ni tratamiento («Sr.»), o con
+el valor en la línea siguiente a la etiqueta, no se encuentra por patrón: el llamante debe pasarlo en `extra`.
 """
 import hashlib
 import hmac
 import re
 
-NIF = re.compile(r"\b(?:[XYZ]\d{7}[A-Z]|\d{8}[A-Z]|[A-HJNPQRSUVW]\d{7}[0-9A-J])\b")
-CUPS = re.compile(r"\bES\d{16}[A-Z]{2}(?:\d[A-Z])?\b", re.IGNORECASE)
-IBAN = re.compile(r"\bES[\d*X]{2}(?:[\s-]?[\d*X]{4}){5}\b", re.IGNORECASE)
-CORREO = re.compile(r"\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b")
+_LET = r"[A-Za-zÁÉÍÓÚÀÈÒÜÇÑáéíóúàèòüçñ]"
+_MAY = r"[A-ZÁÉÍÓÚÀÈÒÜÇÑ]"
+_NUM = r"(?:n\.?\s?[º°]\.?|n[úu]m(?:ero|\.)?)"  # «nº», «N.º», «núm.», «número»
 
-_NUM = r"(?:\s*(?:n[º°o]\.?|núm\.?|num\.?|número))?"
-# Etiquetas (castellano y catalán) cuyo valor es personal. El valor llega hasta 3 espacios seguidos o fin de línea
-# (el texto de `pdftotext -layout` separa columnas así).
-ETIQUETAS = re.compile(
-    r"(?P<etiqueta>\b(?:"
-    r"titular(?: del contrato| del contracte)?|nombre|nom|raz[oó]n social|ra[oó] social"
-    r"|direcci[oó]n(?: de suministro| fiscal)?|direcci[oó]|adre[cç]a(?: de subministrament| fiscal)?|domicilio"
-    r"|punto de suministro|punt de subministrament"
-    r"|c[oó]digo postal|codi postal|poblaci[oó]n|poblaci[oó]|localidad|municipio|municipi"
-    r"|tel[eé]fono|tel[eè]fon|correo electr[oó]nico|correu electr[oò]nic|e-?mail"
-    r"|contrato(?: de acceso| de suministro)?|contracte(?: d'acc[eé]s| de subministrament)?"
-    r"|(?:n[º°o]\.?|n[úu]mero|n[úu]m\.?) ?(?:de )?factura|factura (?:n[º°o]\.?|n[úu]mero|n[úu]m\.?)"
-    r"|n[úu]mero de contador|n[º°o]\.? de contador|n[úu]mero de comptador"
-    r")" + _NUM + r"\s*:?[ \t]+)(?P<valor>\S.*?)(?=[ \t]{3,}|$)",
-    re.IGNORECASE | re.MULTILINE,
-)
+CUPS = re.compile(r"\bES(?:[ ]?\d){16}[ ]?[A-Z]{2}(?:\d[A-Z]{1,2}\d?)?\b", re.IGNORECASE)
+IBAN = re.compile(r"\bES[\d*X]{2}(?:[ -]?[\d*X]){20}\b", re.IGNORECASE)
+NIF = re.compile(r"\b(?:[XYZ]-?\d{7}-?[A-Z]|\d{8}-?[A-Z]|[A-HJNPQRSUVW]-?\d{7}-?[0-9A-J])\b", re.IGNORECASE)
+CORREO = re.compile(r"\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b")
+TELEFONO = re.compile(
+    r"(?<![\d,.-])(?:\+34[ -]?\d{9}"
+    r"|(?:\+34[ -]?)?(?:[6-9]\d{2}[ -]\d{2}[ -]\d{2}[ -]\d{2}|[89]\d[ -]?\d{3}[ -]?\d{2}[ -]\d{2}))\b")
+TRATAMIENTO = re.compile(
+    rf"\b(?:Sr\.|Sra\.|Sres\.|Don|Doña|Dña\.|Dª|Senyor|Senyora)[ ]+(?:{_MAY}[\w'-]*[ ]?){{1,4}}")
+CODIGO_POSTAL_Y_POBLACION = re.compile(
+    rf"\b(?:0[1-9]|[1-4]\d|5[0-2])\d{{3}}[ ]+{_MAY}[\w.'-]+(?:[ ]{_MAY}[\w.'-]+){{0,2}}")
+
+# Etiquetas cuyo valor es personal y que exigen «:» pegado a la etiqueta (castellano y catalán).
+_ETIQUETAS_CON_DOS_PUNTOS = "|".join([
+    r"titular(?: del contrato| del contracte)?", r"cliente|client", r"nombre|nom", r"raz[oó]n social|ra[oó] social",
+    r"direcci[oó]n(?: de (?:suministro|env[ií]o)| fiscal)?|direcci[oó]|adre[cç]a(?: de (?:subministrament|enviament)"
+    r"| fiscal)?|domicilio|domicili",
+    r"punto de suministro|punt de subministrament", r"c[oó]digo postal|codi postal|c\.?p\.?",
+    r"poblaci[oó]n|poblaci[oó]|localidad|municipio|municipi|provincia|prov[ií]ncia",
+    r"tel[eé]fono|tel[eè]fon|tel\.|telf\.?|m[oó]vil|m[òo]bil|fax",
+    r"correo electr[oó]nico|correu electr[oò]nic|e-?mail",
+    r"referencia catastral|refer[eè]ncia cadastral|referencia de pago",
+    r"contrato|contracte|(?<!total )(?<!importe )factura|contador|comptador",
+])
+CON_DOS_PUNTOS = re.compile(
+    rf"(?P<etiqueta>\b(?:{_ETIQUETAS_CON_DOS_PUNTOS})[ \t]*:[ \t]*)(?P<valor>\S.*?)(?=[ \t]{{3,}}|\t|$)",
+    re.IGNORECASE | re.MULTILINE)
+
+# Etiquetas con «nº»/«número»: el valor es una sola palabra y debe llevar algún dígito.
+_ETIQUETAS_CON_NUMERO = "|".join([
+    rf"(?:contrato|contracte)(?: de acceso| d'acc[eé]s| de suministro| de subministrament)?[ ]*{_NUM}",
+    rf"{_NUM}[ ]*de[ ]+(?:factura|contador|comptador|serie(?: del contador)?)",
+    rf"factura[ ]*{_NUM}", rf"equipo de medida[ ]*{_NUM}",
+])
+CON_NUMERO = re.compile(
+    rf"(?P<etiqueta>\b(?:{_ETIQUETAS_CON_NUMERO})[ \t]*:?[ \t]*)(?P<valor>(?=\S*\d)\S+)", re.IGNORECASE)
+
+_FECHA = re.compile(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b|\b\d{4}-\d{2}-\d{2}\b")
+_CON_UNIDAD = re.compile(r"\d[\d.,]*[ ]*(?:kwh|kw|kva|kvarh|€|eur|%)", re.IGNORECASE)
+_DECIMAL = re.compile(r"^-?\d[\d.]*,\d+$|^-?\d+\.\d+$")
+
+
+def _exigir_clave(clave: bytes) -> None:
+    if isinstance(clave, str):
+        raise TypeError("la clave debe ser bytes, no str")
+    if not clave:
+        raise ValueError("se necesita una clave para el token del CUPS")
+
+
+def _es_cifra(valor: str) -> bool:
+    """Cifra de cálculo o ya enmascarado: no se vuelve a tocar."""
+    v = valor.strip()
+    return bool(_FECHA.search(v) or _CON_UNIDAD.search(v) or _DECIMAL.match(v) or "[CUPS:" in v)
+
+
+def _sustituir_valor(m: re.Match) -> str:
+    return m.group(0) if _es_cifra(m.group("valor")) else m.group("etiqueta") + "[DATO]"
 
 
 def token_cups(cups: str, clave: bytes) -> str:
-    """Token estable del suministro: HMAC del CUPS de 20 caracteres (sin el sufijo de punto de medida)."""
-    if not clave:
-        raise ValueError("se necesita una clave para el token del CUPS")
-    base = cups.strip().upper()[:20]
+    """Token estable del suministro: HMAC del CUPS de 20 caracteres (sin espacios ni sufijo de punto de medida).
+    12 hex = 48 bits: basta para distinguir los suministros de un operador; no es una identidad global."""
+    _exigir_clave(clave)
+    base = re.sub(r"\s", "", cups).upper()[:20]
     return "[CUPS:" + hmac.new(clave, base.encode(), hashlib.sha256).hexdigest()[:12] + "]"
 
 
 def enmascarar(texto: str, extra: list[str] | None = None, *, clave: bytes) -> str:
-    if not clave:
-        raise ValueError("se necesita una clave para el token del CUPS")
-    texto = ETIQUETAS.sub(lambda m: m.group("etiqueta") + "[DATO]", texto)
+    _exigir_clave(clave)
+    for s in extra or []:  # primero: un valor conocido se quita entero antes de que un patrón lo parta
+        if s.strip():
+            texto = re.sub(r"\s+".join(map(re.escape, s.split())), "[DATO]", texto, flags=re.IGNORECASE)
     texto = CUPS.sub(lambda m: token_cups(m.group(0), clave), texto)
     texto = IBAN.sub("[IBAN]", texto)
     texto = NIF.sub("[NIF]", texto)
-    texto = CORREO.sub("[CORREO]", texto)
-    for s in extra or []:
-        if s.strip():
-            texto = re.sub(re.escape(s), "[DATO]", texto, flags=re.IGNORECASE)
-    return texto
+    texto = CON_NUMERO.sub(_sustituir_valor, texto)
+    texto = CON_DOS_PUNTOS.sub(_sustituir_valor, texto)
+    texto = TRATAMIENTO.sub("[NOMBRE]", texto)
+    texto = CODIGO_POSTAL_Y_POBLACION.sub("[DATO]", texto)
+    texto = TELEFONO.sub("[TELEFONO]", texto)
+    return CORREO.sub("[CORREO]", texto)

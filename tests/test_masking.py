@@ -86,3 +86,80 @@ def test_sin_clave_no_hay_token_estable():
 def test_texto_sin_datos_personales_queda_igual():
     texto = "Energía P2: 10,00 kWh x 0,100000 €/kWh = 1,00 €\n"
     assert enmascarar(texto, clave=CLAVE) == texto
+
+
+# Líneas de cálculo con palabras de etiqueta dentro (contrato, nombre, nom, factura...): no deben tocarse.
+LINEAS_DE_CALCULO = [
+    "Potencia según contrato 4,4 kW",
+    "Periodo de contrato 01/09/2026 a 02/10/2026",
+    "Contrato 2.0TD 4,4 kW 0,1 €/kW día",
+    "Contrato de energía  P1: 31,25 kWh x 0,15 = 4,69",
+    "Contracte: 31,25 kWh",
+    "Nombre comercial P1  4,4 kW",
+    "nom   Energia P1 31,25 kWh",
+    "Nombre de la tarifa: 2.0TD",
+    "Fecha de contrato: 01/01/2026",
+    "Nº de factura anterior: 1",
+    "Número de contador   01/09/2026  12345",
+    "Importe factura 55,95 €",
+]
+
+
+@pytest.mark.parametrize("linea", LINEAS_DE_CALCULO)
+def test_las_lineas_de_calculo_con_palabras_de_etiqueta_no_se_tocan(linea):
+    assert enmascarar(linea, clave=CLAVE) == linea
+
+
+@pytest.mark.parametrize("linea,secreto", [
+    ("Cliente: Ana Ejemplo", "Ana"),
+    ("Sr. Juan Ejemplo Prueba", "Juan"),
+    ("Sra. Marta Ejemplo", "Marta"),
+    ("Domicili: Carrer Inventat 7", "Inventat"),
+    ("C.P.: 08000", "08000"),
+    ("CP: 08000", "08000"),
+    ("08000 Villaficticia", "Villaficticia"),
+    ("Dirección de envío: Calle Inventada 3", "Inventada"),
+    ("Factura: FE-3", "FE-3"),
+    ("N.º de factura FE-4", "FE-4"),
+    ("Contador: 12345678", "12345678"),
+    ("Nº de serie del contador: 998877", "998877"),
+    ("Equipo de medida nº 998877", "998877"),
+    ("Tel. 93 000 00 00", "93 000 00 00"),
+    ("Telf: +34 600000000", "600000000"),
+    ("Móvil: 600 00 00 00", "600 00 00 00"),
+    ("Fax: 93 000 00 00", "93 000 00 00"),
+    ("Referencia catastral: 0000000AA0000A0000AA", "0000000AA"),
+    ("DNI 00000000-T", "00000000"),
+    ("NIE y1234567l", "1234567"),
+    ("IBAN ES00-0000-0000-00-0000000000", "0000000000"),
+    ("IBAN ES00 0000 0000 00 0000000000", "0000000000"),
+    ("IBAN ES**-****-****-**-******1234", "1234"),
+    ("CUPS ES 0000 0000 0000 0000 AA", "0000 0000"),
+    ("CUPS ES0000000000000000AA0FP1", "0FP1"),
+])
+def test_datos_personales_en_otros_formatos_desaparecen(linea, secreto):
+    assert secreto not in enmascarar(linea, clave=CLAVE)
+
+
+def test_cups_con_espacios_da_el_mismo_token_que_sin_espacios():
+    con = enmascarar("CUPS ES 0000 0000 0000 0000 AA", clave=CLAVE)
+    assert token_cups(CUPS, CLAVE) in con
+
+
+def test_cups_bajo_etiqueta_conserva_su_token():
+    assert token_cups(CUPS, CLAVE) in enmascarar(f"Punto de suministro: {CUPS}", clave=CLAVE)
+
+
+def test_extra_se_aplica_antes_que_los_patrones_y_tolera_espacios_dobles():
+    salida = enmascarar("Dirección: Calle  Sol 5, Madrid", ["Calle Sol 5"], clave=CLAVE)
+    assert "Sol" not in salida and "5" not in salida.split(":")[1]
+
+
+def test_token_cups_sin_clave_falla():
+    with pytest.raises(ValueError, match="clave"):
+        token_cups(CUPS, b"")
+
+
+def test_la_clave_debe_ser_bytes():
+    with pytest.raises(TypeError, match="bytes"):
+        enmascarar("x", clave="texto")
