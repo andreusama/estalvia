@@ -52,8 +52,9 @@ def _limites(periodo: Periodo) -> tuple[datetime, datetime]:
             datetime.combine(periodo.fin + timedelta(days=1), time(), MADRID))
 
 
-def linea_base(site: SiteParams, ingesta: Ingesta, calendario: Calendario, reglas: RuleSet,
-               precios: PrecioContrato, periodo: Periodo) -> Desglose:
+def consumo_por_periodo(site: SiteParams, ingesta: Ingesta, calendario: Calendario,
+                        periodo: Periodo) -> dict[str, Decimal]:
+    """kWh por periodo tarifario del periodo facturado. Falta alguna hora o hay consumo negativo: FaltaDato."""
     desde, hasta = _limites(periodo)
     utc = ZoneInfo("UTC")
     horas_esperadas = int((hasta.astimezone(utc) - desde.astimezone(utc)).total_seconds() // 3600)
@@ -63,14 +64,25 @@ def linea_base(site: SiteParams, ingesta: Ingesta, calendario: Calendario, regla
     if any(x.kwh < 0 for x in ingesta.lecturas if desde <= x.instante_utc < hasta):
         raise FaltaDato("consumo negativo en el periodo facturado")
     totales = ingesta.totales_por_periodo(calendario, tarifa=site.tarifa, desde=desde, hasta=hasta)
-    for p in sorted(totales):
+    return {p: t.kwh for p, t in totales.items()}
+
+
+def desglose(site: SiteParams, kwh_por_periodo: dict[str, Decimal], reglas: RuleSet, precios: PrecioContrato,
+             periodo: Periodo) -> Desglose:
+    """Factura recalculada por el motor con estos kWh por periodo y los precios de la factura."""
+    for p in sorted(kwh_por_periodo):
         if p not in precios.energia_eur_kwh:
             raise FaltaDato(f"falta el precio de energía del periodo {p}")
     for p in sorted(site.potencia_contratada_kw):
         if p not in precios.potencia_eur_kw_anio:
             raise FaltaDato(f"falta el precio de potencia del periodo {p}")
     todas = RuleSet(list(reglas.rules) + precios.reglas(site.tarifa, periodo.inicio))
-    return calcular_factura(site, Lecturas({p: t.kwh for p, t in totales.items()}), todas, periodo)
+    return calcular_factura(site, Lecturas(dict(kwh_por_periodo)), todas, periodo)
+
+
+def linea_base(site: SiteParams, ingesta: Ingesta, calendario: Calendario, reglas: RuleSet,
+               precios: PrecioContrato, periodo: Periodo) -> Desglose:
+    return desglose(site, consumo_por_periodo(site, ingesta, calendario, periodo), reglas, precios, periodo)
 
 
 def comparar(site: SiteParams, ingesta_base: Ingesta, ingesta_escenario: Ingesta, calendario: Calendario,
