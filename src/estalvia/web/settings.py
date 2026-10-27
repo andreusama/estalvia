@@ -26,6 +26,7 @@ CONTRATO = _ENV.get("ESTALVIA_CONTRATO", "")
 DATOS_LECTOR = _ENV.get("ESTALVIA_DATOS_LECTOR", "fecha_hora_kwh")
 # Subidas desde la web (ticket #32): carpeta local ignorada por git; la IA solo ve texto enmascarado con esta clave.
 UPLOADS_DIR = _ENV.get("ESTALVIA_UPLOADS", str(BASE.parents[2] / "data" / "private" / "uploads"))
+CACHE_DIR = _ENV.get("ESTALVIA_CACHE", str(BASE.parents[2] / "data" / "private" / "cache"))  # respuestas de la IA
 MASK_KEY = _ENV.get("ESTALVIA_MASK_KEY", "")
 FABRICA_IA = None  # llamable que devuelve un ClienteIA; None = cliente real desde .env (los tests ponen uno falso)
 

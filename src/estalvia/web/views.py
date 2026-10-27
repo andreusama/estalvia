@@ -25,7 +25,7 @@ from estalvia.extraction.text import ErrorTextoPdf, texto_de_pdf
 from estalvia.ingestion.hourly import ingest_hourly
 
 from .contrato import ErrorContrato, cargar_contrato
-from .subida import contrato_a_yaml, contrato_desde_factura, guardar_privado
+from .subida import contrato_a_yaml, contrato_desde_factura, guardar_privado, preparar_carpeta
 
 RAIZ = Path(__file__).parents[3]
 
@@ -79,14 +79,18 @@ def _media_por_hora(lecturas, filtro) -> list[float | None]:
     return [float(sumas[h] / cuentas[h]) if cuentas[h] else None for h in range(24)]
 
 
+def _subido_o(nombre: str, configurado: str) -> str:
+    """El fichero subido desde la web manda sobre el que indica `.env`."""
+    subido = Path(settings.UPLOADS_DIR) / nombre
+    return str(subido) if subido.is_file() else configurado
+
+
 def _ruta_consumo() -> str:
-    subido = Path(settings.UPLOADS_DIR) / "consumo.csv"
-    return str(subido) if subido.is_file() else settings.DATOS_CSV
+    return _subido_o("consumo.csv", settings.DATOS_CSV)
 
 
 def _ruta_contrato() -> str:
-    subido = Path(settings.UPLOADS_DIR) / "contrato.yaml"
-    return str(subido) if subido.is_file() else settings.CONTRATO
+    return _subido_o("contrato.yaml", settings.CONTRATO)
 
 
 def curva(request):
@@ -203,7 +207,7 @@ def _subir_pdf(datos: bytes) -> JsonResponse:
     except ErrorConfig as e:
         return _respuesta(False, f"Falta configuración para leer la factura: {e}", 503)
     carpeta = Path(settings.UPLOADS_DIR)
-    carpeta.mkdir(parents=True, exist_ok=True, mode=0o700)
+    preparar_carpeta(carpeta)
     fd, temporal = tempfile.mkstemp(dir=carpeta, prefix=".", suffix=".pdf")  # 600; se borra siempre
     try:
         with os.fdopen(fd, "wb") as f:
@@ -214,15 +218,17 @@ def _subir_pdf(datos: bytes) -> JsonResponse:
             return _respuesta(False, f"No se pudo leer el PDF: {e}", 422)
     finally:
         os.unlink(temporal)
-    r = extraer_factura(texto, cliente, cache=CacheEnDisco(carpeta.parent / "cache"))
+    r = extraer_factura(texto, cliente, cache=CacheEnDisco(settings.CACHE_DIR))
     if r.en_revision:
-        return _respuesta(False, "La factura necesita revisión; no se usa para calcular.", 422,
-                          problemas=r.problemas)
+        falla_la_ia = any(p.split(": ", 1)[-1].startswith("error de la IA") for p in r.problemas)
+        mensaje = ("No se pudo consultar la IA (configuración, presupuesto o red)." if falla_la_ia
+                   else "La factura necesita revisión; no se usa para calcular.")
+        return _respuesta(False, mensaje, 422, problemas=r.problemas)
     try:
         contrato = contrato_desde_factura(r.factura)
     except ErrorContrato as e:
         return _respuesta(False, f"La factura necesita revisión: {e}", 422, problemas=[str(e)])
-    guardar_privado(carpeta, "contrato.yaml", contrato_a_yaml(contrato, r.factura.total).encode())
+    guardar_privado(carpeta, "contrato.yaml", contrato_a_yaml(contrato).encode())
     return _respuesta(True, "Factura leída: precios y potencia guardados en tu equipo.", 200)
 
 
@@ -232,6 +238,13 @@ def subir(request):
     nombre que envía el navegador no se usa nunca para escribir en disco."""
     if not request.session.get("autenticado"):
         return redirect("/login/")
+    # Antes de que Django lea el cuerpo: `request.FILES` lo procesa entero, y el tamaño del fichero llega tarde.
+    try:
+        anunciado = int(request.META.get("CONTENT_LENGTH") or 0)
+    except ValueError:
+        anunciado = 0
+    if anunciado > MAX_PDF + 64 * 1024:
+        return _respuesta(False, "El fichero es demasiado grande.", 413)
     f = request.FILES.get("fichero")
     if f is None:
         return _respuesta(False, "No se recibió ningún fichero.", 400)

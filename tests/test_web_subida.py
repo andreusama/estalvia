@@ -98,7 +98,8 @@ class IAFalsa:
 @pytest.fixture
 def web(tmp_path):
     ia = IAFalsa()
-    with override_settings(UPLOADS_DIR=str(tmp_path / "uploads"), DATOS_CSV="", CONTRATO="", WEB_PASSWORD=CLAVE_WEB,
+    with override_settings(UPLOADS_DIR=str(tmp_path / "uploads"), CACHE_DIR=str(tmp_path / "cache"),
+                           DATOS_CSV="", CONTRATO="", WEB_PASSWORD=CLAVE_WEB,
                            DATOS_LECTOR="fecha_hora_kwh", FABRICA_IA=lambda: ia, MASK_KEY="m" * 32):
         c = Client(HTTP_HOST="127.0.0.1")
         c.post("/login/", {"password": CLAVE_WEB})
@@ -181,7 +182,8 @@ def test_sin_clave_de_enmascarado_o_sin_ia_el_pdf_no_sale_y_el_aviso_es_claro(we
         r = subir(web, "f.pdf", pdf)
     assert r.status_code == 503 and "ESTALVIA_MASK_KEY" in r.json()["mensaje"] and not web.ia.peticiones
     web.ia.error = ErrorIA("sin conexión con la API")
-    assert subir(web, "f.pdf", pdf).status_code == 422
+    r = subir(web, "f.pdf", pdf)
+    assert r.status_code == 422 and "IA" in r.json()["mensaje"]
 
 
 def test_las_subidas_estan_ignoradas_por_git():
@@ -196,3 +198,16 @@ def test_las_paginas_traen_la_zona_de_arrastre_y_su_script_se_sirve_sin_html_inl
         assert "<script>" not in html  # la CSP solo admite scripts propios
     js = web.get("/static/js/subir.js")
     assert js.status_code == 200 and "innerHTML" not in b"".join(js.streaming_content).decode()
+
+
+def test_un_cuerpo_mas_grande_que_el_maximo_se_rechaza_antes_de_leerlo(web):
+    r = web.post("/subir/", {"fichero": SimpleUploadedFile("f.pdf", b"%PDF-" + b"0" * 10)},
+                 CONTENT_LENGTH=str(50 * 1024 * 1024))
+    assert r.status_code == 413
+
+
+def test_las_lineas_de_excedentes_o_compensacion_no_cuentan_como_precio_de_energia():
+    f = datos_factura()
+    extra = f.conceptos + [type(f.conceptos[0])(nombre="Compensación excedentes energía P1", precio=D("0.05"),
+                                                  importe=D("-1"))]
+    assert contrato_desde_factura(f.model_copy(update={"conceptos": extra})).precios.energia_eur_kwh["P1"] == D("0.20")

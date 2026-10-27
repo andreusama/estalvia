@@ -46,7 +46,7 @@ def contrato_desde_factura(f: FacturaExtraida) -> Contrato:
     tarifa = f.tarifa_acceso
     if tarifa == "otra":
         raise ErrorContrato("tarifa: no se reconoce la tarifa de acceso de la factura")
-    energia = _precios(f, "energ", ("reactiv",))
+    energia = _precios(f, "energ", ("reactiv", "excedent", "compens"))
     por_dia = _precios(f, "potencia", ("exceso", "maxim", "reactiv"))
     esperados = {"energía": [p for p in PERIODOS_ENERGIA[tarifa] if p in f.energia_kwh],
                  "potencia": [p for p in PERIODOS_POTENCIA[tarifa] if p in f.potencia_contratada_kw
@@ -57,6 +57,8 @@ def contrato_desde_factura(f: FacturaExtraida) -> Contrato:
     for p in esperados["potencia"]:
         if p not in por_dia:
             raise ErrorContrato(f"falta el precio de potencia {p} en las líneas de la factura")
+    # VERIFICAR: se supone que la factura imprime la potencia en EUR/kW·día y que anual = día x días del año.
+    # Lo vigila la comparación de la línea base con el total impreso (web/views.py).
     anio = f.periodo_facturado.inicio.year
     dias_anio = 366 if anio % 4 == 0 and (anio % 100 != 0 or anio % 400 == 0) else 365
     potencia = {p: v for p, v in f.potencia_contratada_kw.items() if p in por_dia}
@@ -65,10 +67,10 @@ def contrato_desde_factura(f: FacturaExtraida) -> Contrato:
     site = SiteParams(tarifa, potencia, alquiler_importe=alquiler or None,
                       aplica_bono_social=any("bono social" in n for n in nombres))
     return Contrato(site, PrecioContrato(energia, {p: por_dia[p] * dias_anio for p in potencia}),
-                    Periodo(f.periodo_facturado.inicio, f.periodo_facturado.fin))
+                    Periodo(f.periodo_facturado.inicio, f.periodo_facturado.fin), f.total)
 
 
-def contrato_a_yaml(c: Contrato, total_factura: Decimal) -> str:
+def contrato_a_yaml(c: Contrato) -> str:
     """El mismo formato que lee `cargar_contrato`: importes como texto, nunca como coma flotante."""
     datos = {
         "tarifa": c.site.tarifa,
@@ -77,20 +79,26 @@ def contrato_a_yaml(c: Contrato, total_factura: Decimal) -> str:
                     "potencia_eur_kw_anio": {p: str(v) for p, v in c.precios.potencia_eur_kw_anio.items()}},
         "periodo": {"inicio": c.periodo.inicio, "fin": c.periodo.fin},
         "ie_uso": c.site.ie_uso, "aplica_bono_social": c.site.aplica_bono_social,
-        "total_factura": str(total_factura),
     }
+    if c.total_factura is not None:
+        datos["total_factura"] = str(c.total_factura)
     if c.site.alquiler_importe is not None:
         datos["alquiler_importe"] = str(c.site.alquiler_importe)
     return yaml.safe_dump(datos, sort_keys=False, allow_unicode=True)
 
 
+def preparar_carpeta(carpeta: Path) -> None:
+    """Carpeta privada (700) que no es un enlace simbólico."""
+    if carpeta.is_symlink():
+        raise OSError("la carpeta de subidas es un enlace simbólico; no se escribe a través de ella")
+    carpeta.mkdir(parents=True, exist_ok=True, mode=0o700)
+    carpeta.chmod(0o700)
+
+
 def guardar_privado(carpeta: Path, nombre: str, datos: bytes) -> Path:
     """Escribe `carpeta/nombre` con permisos 600 en una carpeta 700, sin seguir enlaces simbólicos, y lo
     sustituye de golpe: nunca queda a medias. El nombre lo pone el código, jamás el cliente."""
-    if carpeta.is_symlink():
-        raise OSError("la carpeta de subidas es un enlace simbólico; no se escribe a través de él")
-    carpeta.mkdir(parents=True, exist_ok=True, mode=0o700)
-    carpeta.chmod(0o700)
+    preparar_carpeta(carpeta)
     fd, temporal = tempfile.mkstemp(dir=carpeta, prefix=".", suffix=".tmp")  # mkstemp crea con permisos 600
     try:
         with os.fdopen(fd, "wb") as f:
