@@ -1,24 +1,31 @@
 """Vistas de la web local: acceso con una contraseña, curva horaria media y ficheros estáticos de lista cerrada."""
 import hmac
+import os
+import tempfile
 import time
 from collections import defaultdict
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from django.conf import settings
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
+from estalvia.ai.gateway import ClienteAnthropic, ErrorConfig, clave_enmascarado
+from estalvia.ai.masking import sellar
 from estalvia.analysis.habito import KWH_CANDIDATO, Habito, HabitoImposible, candidatos, evaluar_habito
 from estalvia.analysis.nucleo import FaltaDato, linea_base
 from estalvia.engine.errors import EngineError
 from estalvia.engine.periods import Calendario
 from estalvia.engine.rules import RuleSet
+from estalvia.extraction.extractor import CacheEnDisco, extraer_factura
 from estalvia.extraction.schema import PERIODOS_ENERGIA
-from estalvia.ingestion.hourly import IngestError, ingest_hourly
+from estalvia.extraction.text import ErrorTextoPdf, texto_de_pdf
+from estalvia.ingestion.hourly import ingest_hourly
 
 from .contrato import ErrorContrato, cargar_contrato
+from .subida import contrato_a_yaml, contrato_desde_factura, guardar_privado
 
 RAIZ = Path(__file__).parents[3]
 
@@ -27,7 +34,12 @@ BLOQUEO_SEGUNDOS = 60
 FALLOS: list[float] = []  # instantes (monotónicos) de los intentos fallidos recientes
 
 ESTATICOS = {"vendor/chart.umd.js": "text/javascript", "js/curva.js": "text/javascript",
-             "css/web.css": "text/css"}
+             "js/subir.js": "text/javascript", "css/web.css": "text/css"}
+
+MAX_CSV = 2 * 1024 * 1024
+MAX_PDF = 5 * 1024 * 1024
+PRESUPUESTO_ANALISIS_USD = Decimal("0.50")  # tope de IA por análisis; se revisará (spec #18)
+TOLERANCIA_LINEA_BASE = Decimal("0.005")  # 0,5 %, el umbral del TDD
 
 
 def _bloqueado() -> bool:
@@ -67,19 +79,29 @@ def _media_por_hora(lecturas, filtro) -> list[float | None]:
     return [float(sumas[h] / cuentas[h]) if cuentas[h] else None for h in range(24)]
 
 
+def _ruta_consumo() -> str:
+    subido = Path(settings.UPLOADS_DIR) / "consumo.csv"
+    return str(subido) if subido.is_file() else settings.DATOS_CSV
+
+
+def _ruta_contrato() -> str:
+    subido = Path(settings.UPLOADS_DIR) / "contrato.yaml"
+    return str(subido) if subido.is_file() else settings.CONTRATO
+
+
 def curva(request):
     if not request.session.get("autenticado"):
         return redirect("/login/")
     contexto: dict = {}
-    if not settings.DATOS_CSV:
-        contexto["aviso"] = "Falta ESTALVIA_DATOS_CSV en .env: la ruta de un CSV de consumo horario."
+    if not _ruta_consumo():
+        contexto["aviso"] = "Sube un CSV de consumo horario arrastrándolo aquí abajo."
     else:
         try:
-            ingesta = ingest_hourly(Path(settings.DATOS_CSV).read_bytes(), settings.DATOS_LECTOR)
+            ingesta = ingest_hourly(Path(_ruta_consumo()).read_bytes(), settings.DATOS_LECTOR)
             contexto["datos"] = {"horas": list(range(24)),
                                  "laborable": _media_por_hora(ingesta.lecturas, lambda d: d.weekday() < 5),
                                  "finde": _media_por_hora(ingesta.lecturas, lambda d: d.weekday() >= 5)}
-        except (OSError, IngestError):
+        except (OSError, ValueError):
             contexto["aviso"] = "No se pudo leer el CSV de consumo (ruta o formato)."
     return render(request, "web/curva.html", contexto)
 
@@ -103,25 +125,31 @@ def ahorro(request):
     if not request.session.get("autenticado"):
         return redirect("/login/")
     ctx: dict = {}
-    if not settings.CONTRATO:
-        ctx["aviso"] = "Falta ESTALVIA_CONTRATO en .env: la ruta del YAML con los datos de la factura."
+    if not _ruta_contrato():
+        ctx["aviso"] = "Sube la factura en PDF (o define ESTALVIA_CONTRATO en .env) para conocer tus precios."
         return render(request, "web/ahorro.html", ctx)
-    if not settings.DATOS_CSV:
-        ctx["aviso"] = "Falta ESTALVIA_DATOS_CSV en .env: la ruta de un CSV de consumo horario."
+    if not _ruta_consumo():
+        ctx["aviso"] = "Sube un CSV de consumo horario (o define ESTALVIA_DATOS_CSV en .env)."
         return render(request, "web/ahorro.html", ctx)
     try:
-        contrato = cargar_contrato(settings.CONTRATO)
-        ingesta = ingest_hourly(Path(settings.DATOS_CSV).read_bytes(), settings.DATOS_LECTOR)
+        contrato = cargar_contrato(_ruta_contrato())
+        ingesta = ingest_hourly(Path(_ruta_consumo()).read_bytes(), settings.DATOS_LECTOR)
     except ErrorContrato as e:
         ctx["aviso"] = f"Contrato: {e}"
         return render(request, "web/ahorro.html", ctx)
-    except (OSError, IngestError):
+    except (OSError, ValueError):
         ctx["aviso"] = "No se pudo leer el CSV de consumo (ruta o formato)."
         return render(request, "web/ahorro.html", ctx)
     reglas, calendario = _cargar_reglas(), Calendario.desde_directorio(RAIZ / "rules/calendar")
     args = (contrato.site, ingesta, calendario, reglas, contrato.precios, contrato.periodo)
     try:
-        ctx["base"] = linea_base(*args)
+        base = linea_base(*args)
+        total = contrato.total_factura
+        if total and abs(base.total - total) / total > TOLERANCIA_LINEA_BASE:
+            ctx["aviso"] = (f"La línea base recalculada ({base.total} €) no coincide con el total de la factura "
+                            f"({total} €): no se muestra el ahorro. Revisa que el CSV cubra el periodo facturado.")
+            return render(request, "web/ahorro.html", ctx)
+        ctx["base"] = base
         ctx["candidatos"] = candidatos(*args)
         ctx["kwh_candidato"] = KWH_CANDIDATO
         ctx["periodos"] = PERIODOS_ENERGIA[contrato.site.tarifa]
@@ -145,3 +173,78 @@ def ahorro(request):
     except (ValueError, ArithmeticError):
         ctx["aviso"] = "No se puede calcular con los datos del contrato y del consumo; revisa el contrato."
     return render(request, "web/ahorro.html", ctx)
+
+
+def _respuesta(ok: bool, mensaje: str, estado: int, **extra) -> JsonResponse:
+    return JsonResponse({"ok": ok, "mensaje": mensaje, **extra}, status=estado)
+
+
+def _subir_csv(datos: bytes) -> JsonResponse:
+    try:
+        ingesta = ingest_hourly(datos, settings.DATOS_LECTOR)
+    except ValueError:  # IngestError o un fichero que no es texto UTF-8; el mensaje no repite el contenido
+        return _respuesta(False, "El CSV no se puede leer: formato de consumo horario no reconocido.", 400)
+    if not ingesta.lecturas:
+        return _respuesta(False, "El CSV no tiene lecturas.", 400)
+    guardar_privado(Path(settings.UPLOADS_DIR), "consumo.csv", datos)
+    return _respuesta(True, f"CSV leído: {len(ingesta.lecturas)} horas de consumo.", 200)
+
+
+def _cliente_ia():
+    if settings.FABRICA_IA is not None:
+        return settings.FABRICA_IA()
+    return ClienteAnthropic.desde_entorno(presupuesto_usd=PRESUPUESTO_ANALISIS_USD)
+
+
+def _subir_pdf(datos: bytes) -> JsonResponse:
+    try:
+        clave = clave_enmascarado({"ESTALVIA_MASK_KEY": settings.MASK_KEY})
+        cliente = _cliente_ia()
+    except ErrorConfig as e:
+        return _respuesta(False, f"Falta configuración para leer la factura: {e}", 503)
+    carpeta = Path(settings.UPLOADS_DIR)
+    carpeta.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd, temporal = tempfile.mkstemp(dir=carpeta, prefix=".", suffix=".pdf")  # 600; se borra siempre
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(datos)
+        try:
+            texto = sellar(texto_de_pdf(temporal), clave=clave)
+        except ErrorTextoPdf as e:
+            return _respuesta(False, f"No se pudo leer el PDF: {e}", 422)
+    finally:
+        os.unlink(temporal)
+    r = extraer_factura(texto, cliente, cache=CacheEnDisco(carpeta.parent / "cache"))
+    if r.en_revision:
+        return _respuesta(False, "La factura necesita revisión; no se usa para calcular.", 422,
+                          problemas=r.problemas)
+    try:
+        contrato = contrato_desde_factura(r.factura)
+    except ErrorContrato as e:
+        return _respuesta(False, f"La factura necesita revisión: {e}", 422, problemas=[str(e)])
+    guardar_privado(carpeta, "contrato.yaml", contrato_a_yaml(contrato, r.factura.total).encode())
+    return _respuesta(True, "Factura leída: precios y potencia guardados en tu equipo.", 200)
+
+
+@require_http_methods(["POST"])
+def subir(request):
+    """Un fichero por petición (`fichero`). El tipo se decide por la extensión y se comprueba el contenido; el
+    nombre que envía el navegador no se usa nunca para escribir en disco."""
+    if not request.session.get("autenticado"):
+        return redirect("/login/")
+    f = request.FILES.get("fichero")
+    if f is None:
+        return _respuesta(False, "No se recibió ningún fichero.", 400)
+    extension = Path(f.name).suffix.lower()
+    if extension not in (".csv", ".pdf"):
+        return _respuesta(False, "Solo se admiten ficheros .csv (consumo) y .pdf (factura).", 400)
+    if f.size > (MAX_CSV if extension == ".csv" else MAX_PDF):
+        return _respuesta(False, "El fichero es demasiado grande.", 413)
+    datos = f.read()
+    if extension == ".pdf":
+        if not datos.startswith(b"%PDF-"):
+            return _respuesta(False, "El fichero no parece un PDF.", 400)
+        return _subir_pdf(datos)
+    if datos.startswith(b"%PDF-"):
+        return _respuesta(False, "El fichero .csv es en realidad un PDF.", 400)
+    return _subir_csv(datos)

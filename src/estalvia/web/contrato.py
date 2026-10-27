@@ -29,6 +29,7 @@ class Contrato:
     site: SiteParams
     precios: PrecioContrato
     periodo: Periodo
+    total_factura: Decimal | None = None  # solo si el contrato salió de una factura subida
 
 
 def _decimal(valor, campo: str) -> Decimal:
@@ -78,7 +79,8 @@ def cargar_contrato(ruta: str | Path) -> Contrato:
                           aplica_bono_social=bool(crudo.get("aplica_bono_social", False)),
                           alquiler_importe=(_decimal(crudo["alquiler_importe"], "alquiler_importe")
                                             if "alquiler_importe" in crudo else None))
-        return Contrato(site, PrecioContrato(energia, precio_potencia), Periodo(inicio, fin))
+        total = _decimal(crudo["total_factura"], "total_factura") if "total_factura" in crudo else None
+        return Contrato(site, PrecioContrato(energia, precio_potencia), Periodo(inicio, fin), total)
     except KeyError as e:
         raise ErrorContrato(f"falta el campo {e.args[0]}") from None
     except TypeError:

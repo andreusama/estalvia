@@ -24,6 +24,10 @@ WEB_PASSWORD = _exigir("ESTALVIA_WEB_PASSWORD", 12)
 DATOS_CSV = _ENV.get("ESTALVIA_DATOS_CSV", "")
 CONTRATO = _ENV.get("ESTALVIA_CONTRATO", "")
 DATOS_LECTOR = _ENV.get("ESTALVIA_DATOS_LECTOR", "fecha_hora_kwh")
+# Subidas desde la web (ticket #32): carpeta local ignorada por git; la IA solo ve texto enmascarado con esta clave.
+UPLOADS_DIR = _ENV.get("ESTALVIA_UPLOADS", str(BASE.parents[2] / "data" / "private" / "uploads"))
+MASK_KEY = _ENV.get("ESTALVIA_MASK_KEY", "")
+FABRICA_IA = None  # llamable que devuelve un ClienteIA; None = cliente real desde .env (los tests ponen uno falso)
 
 DEBUG = False
 ALLOWED_HOSTS = ["127.0.0.1", "localhost"]

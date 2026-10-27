@@ -4,3 +4,9 @@ body { background: var(--fondo); color: var(--texto); font-family: system-ui, sa
 main { max-width: 56rem; margin: 0 auto; padding: 1rem 16px; }
 .error { color: var(--error); }
 input, button { font: inherit; padding: .4rem .6rem; }
+
+#subida { margin: 1.5rem 0; }
+#zona { display: block; padding: 2rem 1rem; border: 2px dashed currentColor; border-radius: 8px; text-align: center; cursor: pointer; opacity: .8; }
+#zona.sobre, #zona:hover { opacity: 1; background: rgba(127, 127, 127, .12); }
+#ficheros { position: absolute; width: 1px; height: 1px; opacity: 0; }
+#ficheros:focus-visible + #estado-subida, #ficheros:focus-visible ~ #zona { outline: 2px solid currentColor; }

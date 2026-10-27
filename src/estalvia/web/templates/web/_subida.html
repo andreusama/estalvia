@@ -1,0 +1,7 @@
+<form id="subida" method="post" action="/subir/" enctype="multipart/form-data">{% csrf_token %}
+<label id="zona" for="ficheros">Arrastra aquí el CSV de consumo y la factura en PDF, o pulsa para elegirlos</label>
+<input id="ficheros" name="fichero" type="file" accept=".csv,.pdf" multiple>
+<p id="estado-subida" role="status" aria-live="polite"></p>
+<ul id="problemas-subida"></ul>
+</form>
+<script src="/static/js/subir.js"></script>
