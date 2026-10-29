@@ -204,7 +204,8 @@ def extraer_factura(texto: TextoEnmascarado, cliente: ClienteIA, *, ajustes: Aju
             continue
         factura, encontrados = validar_datos(normalizar_salida(datos), otras)
         if factura is None:
-            problemas = encontrados
+            con_valor = len(normalizar_salida(datos))  # solo recuentos: ni claves ni valores (pueden traer datos)
+            problemas = encontrados + [f"forma de la respuesta: {len(datos)} campos, {con_valor} con valor"]
             continue
         if not desde_cache:
             cache.set(clave, respuesta)

@@ -1,5 +1,6 @@
 """Vistas de la web local: acceso con una contraseña, curva horaria media y ficheros estáticos de lista cerrada."""
 import hmac
+import logging
 import os
 import tempfile
 import time
@@ -8,7 +9,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from django.conf import settings
-from django.http import FileResponse, Http404, JsonResponse
+from django.http import FileResponse, Http404, HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
@@ -19,7 +20,7 @@ from estalvia.analysis.nucleo import FaltaDato, linea_base
 from estalvia.engine.errors import EngineError
 from estalvia.engine.periods import Calendario
 from estalvia.engine.rules import RuleSet
-from estalvia.extraction.extractor import CacheEnDisco, extraer_factura
+from estalvia.extraction.extractor import Ajustes, CacheEnDisco, extraer_factura
 from estalvia.extraction.schema import PERIODOS_ENERGIA
 from estalvia.extraction.text import ErrorTextoPdf, texto_de_pdf
 from estalvia.ingestion.hourly import ingest_hourly
@@ -39,6 +40,8 @@ ESTATICOS = {"vendor/chart.umd.js": "text/javascript", "js/curva.js": "text/java
 MAX_CSV = 2 * 1024 * 1024
 MAX_PDF = 5 * 1024 * 1024
 PRESUPUESTO_ANALISIS_USD = Decimal("0.50")  # tope de IA por análisis; se revisará (spec #18)
+# Con 16000 el peor caso (0,33 USD) impedía el reintento dentro de 0,50 USD; la salida real ronda los 700 tokens.
+AJUSTES_WEB = Ajustes(max_tokens=10000)
 TOLERANCIA_LINEA_BASE = Decimal("0.005")  # 0,5 %, el umbral del TDD
 
 
@@ -218,7 +221,7 @@ def _subir_pdf(datos: bytes) -> JsonResponse:
             return _respuesta(False, f"No se pudo leer el PDF: {e}", 422)
     finally:
         os.unlink(temporal)
-    r = extraer_factura(texto, cliente, cache=CacheEnDisco(settings.CACHE_DIR))
+    r = extraer_factura(texto, cliente, ajustes=AJUSTES_WEB, cache=CacheEnDisco(settings.CACHE_DIR))
     if r.en_revision:
         falla_la_ia = any(p.split(": ", 1)[-1].startswith("error de la IA") for p in r.problemas)
         mensaje = ("No se pudo consultar la IA (configuración, presupuesto o red)." if falla_la_ia
@@ -261,3 +264,10 @@ def subir(request):
     if datos.startswith(b"%PDF-"):
         return _respuesta(False, "El fichero .csv es en realidad un PDF.", 400)
     return _subir_csv(datos)
+
+
+def fallo_csrf(request, reason=""):
+    """403 de CSRF: el motivo (no secreto) va a la consola del servidor para poder diagnosticarlo."""
+    logging.getLogger("estalvia.web").warning("CSRF rechazado en %s: %s (host=%s, origin=%s)", request.path, reason,
+                                              request.get_host(), request.META.get("HTTP_ORIGIN"))
+    return HttpResponseForbidden("Petición rechazada (CSRF). Recarga la página e inténtalo de nuevo.")

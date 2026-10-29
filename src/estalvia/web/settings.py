@@ -52,11 +52,20 @@ TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "DIR
 
 # Sesión en una cookie firmada: no hace falta base de datos. Sin HTTPS en local, la cookie no puede ser «Secure».
 SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
+# Nombre propio: las cookies se comparten entre puertos de 127.0.0.1 y otra app local con «sessionid» la pisaría
+# (la firma no coincide y el token CSRF, que vive en la sesión, falla).
+SESSION_COOKIE_NAME = "estalvia_sessionid"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Strict"
 SESSION_COOKIE_AGE = 8 * 3600
 CSRF_USE_SESSIONS = True
+CSRF_FAILURE_VIEW = "estalvia.web.views.fallo_csrf"
 CSRF_COOKIE_SAMESITE = "Strict"
 SECURE_CONTENT_TYPE_NOSNIFF = True
-SECURE_REFERRER_POLICY = "no-referrer"
+# «no-referrer» hace que el navegador envíe «Origin: null» en los formularios y Django rechaza el CSRF.
+SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
+
+LOGGING = {"version": 1, "disable_existing_loggers": False,
+           "handlers": {"consola": {"class": "logging.StreamHandler"}},
+           "loggers": {"estalvia.web": {"handlers": ["consola"], "level": "WARNING"}}}

@@ -65,7 +65,7 @@ def test_cabeceras_de_seguridad_y_csp_estricta_sin_dominios_externos():
     assert r["Content-Security-Policy"] == (
         "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; "
         "base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
-    assert r["X-Content-Type-Options"] == "nosniff" and r["Referrer-Policy"] == "no-referrer"
+    assert r["X-Content-Type-Options"] == "nosniff" and r["Referrer-Policy"] == "same-origin"
     assert r["X-Frame-Options"] == "DENY" and "no-store" in r["Cache-Control"]
 
 
@@ -118,3 +118,8 @@ def test_salir_cierra_la_sesion_solo_por_post():
     assert c.get("/logout/").status_code == 405
     assert c.post("/logout/").status_code == 302
     assert c.get("/").status_code == 302
+
+
+def test_la_cookie_de_sesion_tiene_nombre_propio_para_no_chocar_con_otra_app_local_en_127_0_0_1():
+    r = cliente().get("/login/")
+    assert "estalvia_sessionid" in r.cookies and "sessionid" not in r.cookies
