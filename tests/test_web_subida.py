@@ -26,6 +26,7 @@ from estalvia.web.contrato import ErrorContrato  # noqa: E402
 from estalvia.web.subida import contrato_desde_factura  # noqa: E402
 
 RAIZ = Path(__file__).parents[1]
+PDF_DE_LUZ = pdf_minimo([(50, 780, "Energia P1 8 kWh"), (50, 760, "Potencia P1 4 kW")])
 
 
 def datos_factura(**cambios):
@@ -148,7 +149,8 @@ def test_tipo_nombre_y_tamano_incorrectos_se_rechazan(web):
 
 @pytest.mark.skipif(shutil.which("pdftotext") is None, reason="pdftotext no está instalado")
 def test_un_pdf_se_enmascara_se_extrae_y_deja_el_contrato_sin_guardar_el_pdf(web):
-    pdf = pdf_minimo([(50, 780, "Titular: Ana Ejemplo"), (50, 760, "Energia P1 8 kWh 0,20")])
+    pdf = pdf_minimo([(50, 780, "Titular: Ana Ejemplo"), (50, 760, "Energia P1 8 kWh 0,20"),
+                      (50, 740, "Potencia P1 4 kW")])
     subir(web, "consumo.csv", CSV_BUENO)
     r = subir(web, "factura.pdf", pdf)
     assert r.status_code == 200 and r.json()["ok"] is True
@@ -162,7 +164,7 @@ def test_un_pdf_se_enmascara_se_extrae_y_deja_el_contrato_sin_guardar_el_pdf(web
 @pytest.mark.skipif(shutil.which("pdftotext") is None, reason="pdftotext no está instalado")
 def test_una_factura_que_no_cuadra_va_a_revision_y_no_cambia_el_contrato(web):
     web.ia.datos = {**FACTURA_IA, "total": "9.99"}
-    r = subir(web, "factura.pdf", pdf_minimo([(50, 780, "Total 9,99")]))
+    r = subir(web, "factura.pdf", PDF_DE_LUZ)
     assert r.status_code == 422 and r.json()["ok"] is False and r.json()["problemas"]
     assert not (web.uploads / "contrato.yaml").exists()
 
@@ -170,14 +172,14 @@ def test_una_factura_que_no_cuadra_va_a_revision_y_no_cambia_el_contrato(web):
 @pytest.mark.skipif(shutil.which("pdftotext") is None, reason="pdftotext no está instalado")
 def test_si_el_consumo_no_cuadra_con_la_factura_no_se_muestra_el_ahorro(web):
     subir(web, "consumo.csv", CSV_DOBLE)
-    subir(web, "factura.pdf", pdf_minimo([(50, 780, "Energia P1")]))
+    subir(web, "factura.pdf", PDF_DE_LUZ)
     html = web.get("/ahorro/").content.decode()
     assert "no coincide" in html and 'id="resultados"' not in html
 
 
 @pytest.mark.skipif(shutil.which("pdftotext") is None, reason="pdftotext no está instalado")
 def test_sin_clave_de_enmascarado_o_sin_ia_el_pdf_no_sale_y_el_aviso_es_claro(web):
-    pdf = pdf_minimo([(50, 780, "Energia P1")])
+    pdf = PDF_DE_LUZ
     with override_settings(MASK_KEY=""):
         r = subir(web, "f.pdf", pdf)
     assert r.status_code == 503 and "ESTALVIA_MASK_KEY" in r.json()["mensaje"] and not web.ia.peticiones
@@ -211,3 +213,9 @@ def test_las_lineas_de_excedentes_o_compensacion_no_cuentan_como_precio_de_energ
     extra = f.conceptos + [type(f.conceptos[0])(nombre="Compensación excedentes energía P1", precio=D("0.05"),
                                                   importe=D("-1"))]
     assert contrato_desde_factura(f.model_copy(update={"conceptos": extra})).precios.energia_eur_kwh["P1"] == D("0.20")
+
+
+@pytest.mark.skipif(shutil.which("pdftotext") is None, reason="pdftotext no está instalado")
+def test_un_pdf_que_no_parece_una_factura_de_luz_no_sale_hacia_la_ia(web):
+    r = subir(web, "otro.pdf", pdf_minimo([(50, 780, "Recibo de la comunidad de vecinos 45,00 EUR")]))
+    assert r.status_code == 422 and "no se envía a la IA" in r.json()["mensaje"] and not web.ia.peticiones

@@ -219,6 +219,10 @@ def _subir_pdf(datos: bytes) -> JsonResponse:
             texto = sellar(texto_de_pdf(temporal), clave=clave)
         except ErrorTextoPdf as e:
             return _respuesta(False, f"No se pudo leer el PDF: {e}", 422)
+        palabras = str(texto).lower()
+        if "kwh" not in palabras or not ("potencia" in palabras or "potència" in palabras):
+            return _respuesta(False, "El PDF no parece una factura de electricidad (no menciona kWh ni potencia): "
+                                     "no se envía a la IA.", 422)
     finally:
         os.unlink(temporal)
     r = extraer_factura(texto, cliente, ajustes=AJUSTES_WEB, cache=CacheEnDisco(settings.CACHE_DIR))
@@ -226,7 +230,9 @@ def _subir_pdf(datos: bytes) -> JsonResponse:
         falla_la_ia = any(p.split(": ", 1)[-1].startswith("error de la IA") for p in r.problemas)
         mensaje = ("No se pudo consultar la IA (configuración, presupuesto o red)." if falla_la_ia
                    else "La factura necesita revisión; no se usa para calcular.")
-        return _respuesta(False, mensaje, 422, problemas=r.problemas)
+        medidas = (f"texto enviado: {len(texto)} caracteres; tokens de entrada {r.tokens_entrada}, "
+                   f"de salida {r.tokens_salida}")
+        return _respuesta(False, mensaje, 422, problemas=r.problemas + [medidas])
     try:
         contrato = contrato_desde_factura(r.factura)
     except ErrorContrato as e:
