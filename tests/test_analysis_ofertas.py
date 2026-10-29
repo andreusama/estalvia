@@ -14,6 +14,7 @@ P3 0,000077 + 0,003215 (P3 no tiene pago por capacidad: casilla en blanco en el 
   Precio efectivo: P1 0,150 + 0,010 + 0,098353 = 0,258353 ; P2 0,080 + 0,010 + 0,029400 = 0,119400 ;
   P3 0,040 + 0,010 + 0,003292 = 0,053292.
   Energía 2,07 + 0,96 + 0,43 = 3,46 ; potencia 0,36 ; base 3,82 ; IE 0,20 ; sin IVA 4,02 ; total 4,86 ; ahorro 0,17."""
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal as D
 from pathlib import Path
@@ -75,7 +76,8 @@ def test_una_oferta_indexada_usa_el_precio_de_mercado_de_cada_hora_mas_peajes_ca
     r = evaluar(INDEXADA, mercado())
     assert (r.total, r.ahorro, r.completo, r.tipo) == (D("4.86"), D("0.17"), True, "indexada")
     assert r.precios_capturados_en == datetime(2026, 10, 28, 9, 0, tzinfo=timezone.utc)
-    assert r.atribucion == "Fuente: Red Eléctrica (www.ree.es), REData" and r.avisos == ()
+    assert r.atribucion == "Fuente: Red Eléctrica (www.ree.es), REData"
+    assert len(r.avisos) == 1 and "P3" in r.avisos[0] and "VERIFICAR" in r.avisos[0]
 
 
 def test_sin_precios_de_mercado_la_oferta_indexada_sale_marcada_y_sin_importe():
@@ -99,12 +101,50 @@ def test_una_hora_con_solo_parte_de_sus_cuartos_de_hora_cuenta_como_hora_sin_pre
 
 
 def test_sin_declarar_servicios_de_ajuste_se_calcula_pero_con_aviso_y_la_oferta_fija_no_avisa():
-    sin_declarar = OfertaIndexada(**{**INDEXADA.__dict__, "otros_eur_kwh": None})
-    r = evaluar(sin_declarar, mercado())
-    assert r.total == D("4.86") and len(r.avisos) == 1 and "servicios de ajuste" in r.avisos[0]
+    r = evaluar(replace(INDEXADA, otros_eur_kwh=None), mercado())
+    assert r.total == D("4.86") and len(r.avisos) == 2 and any("servicios de ajuste" in a for a in r.avisos)
 
 
 def test_los_otros_costes_declarados_suben_el_total():
-    con_ajustes = OfertaIndexada(**{**INDEXADA.__dict__, "otros_eur_kwh": D("0.020")})
+    con_ajustes = replace(INDEXADA, otros_eur_kwh=D("0.020"))
     # +0,020 EUR/kWh x 24 kWh = 0,48 de energía ; base 4,30 ; IE 0,22 ; sin IVA 4,52 ; total 5,47
     assert evaluar(con_ajustes, mercado()).total == D("5.47")
+
+
+def test_una_oferta_a_la_que_le_falta_el_precio_de_un_periodo_sale_marcada_y_no_rompe():
+    sin_p3 = OfertaFija("Sin P3", {"P1": D("0.18"), "P2": D("0.12")}, {"P1": D(28), "P2": D("2.5")},
+                        date(2026, 10, 1), "prueba")
+    r = evaluar(sin_p3)
+    assert (r.total, r.ahorro, r.completo) == (None, None, False) and "P3" in r.avisos[0]
+    sin_potencia = replace(INDEXADA, potencia_eur_kw_anio={"P1": D(30)})
+    r = evaluar(sin_potencia, mercado())
+    assert r.total is None and "potencia" in r.avisos[0]
+
+
+def test_instantes_duplicados_no_hacen_pasar_una_hora_incompleta_y_una_resolucion_rara_se_rechaza():
+    base = mercado()
+    # una hora con un cuarto repetido y otro ausente: tiene 4 puntos pero solo 3 instantes distintos
+    puntos = [p for p in base.puntos if p.instante_utc != INICIO + timedelta(minutes=45)]
+    puntos.append(PricePoint(INICIO + timedelta(minutes=30), D(999)))
+    r = evaluar(INDEXADA, PriceResult(puntos, True, base.capturado_en, "redata", None, base.paso, None))
+    assert r.total is None and "1 horas" in r.avisos[0]
+    raro = PriceResult(base.puntos, True, base.capturado_en, "redata", None, timedelta(minutes=45), None)
+    r = evaluar(INDEXADA, raro)
+    assert r.total is None and "resolución" in r.avisos[0]
+
+
+def test_en_un_dia_de_cambio_de_hora_de_23_horas_los_precios_se_cruzan_por_hora_utc():
+    # Domingo 2026-03-29 (23 horas, todo P3), 1 kWh/h, mercado a 100 EUR/MWh todo el día. Ese día las reglas
+    # aplican un impuesto eléctrico del 0,5 % (mínimo 0,0115 < 0,5 % de la base).
+    # Contrato: energía 23 x 0,10 = 2,30 ; potencia 0,36 ;
+    # base 2,66 ; IE 0,01 ; sin IVA 2,67 ; total 3,23. Indexada: 23 x (0,100 + 0,010 + 0,003292) = 2,61 ; base 2,97 ;
+    # IE 0,01 ; sin IVA 2,98 ; total 3,61 ; ahorro 3,23 - 3,61 = -0,38 (sale más cara).
+    inicio = datetime(2026, 3, 28, 23, 0, tzinfo=timezone.utc)
+    consumo = ingest_hourly(("instante,kwh,kvarh,tipo\n" + "".join(
+        f"{(inicio + timedelta(hours=h)).isoformat()},1,0,real\n" for h in range(23))).encode(), "interno")
+    puntos = [PricePoint(inicio + timedelta(hours=h, minutes=15 * q), D(100)) for h in range(23) for q in range(4)]
+    capturado = datetime(2026, 3, 30, tzinfo=timezone.utc)
+    mkt = PriceResult(puntos, True, capturado, "redata", None, timedelta(minutes=15), None)
+    dia = Periodo(date(2026, 3, 29), date(2026, 3, 29))
+    r = evaluar_oferta(SITIO, consumo, CALENDARIO, REGLAS, CONTRATO, dia, INDEXADA, mkt)
+    assert (r.total, r.ahorro) == (D("3.61"), D("-0.38"))

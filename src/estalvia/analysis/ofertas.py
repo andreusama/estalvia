@@ -21,7 +21,7 @@ from estalvia.analysis.nucleo import (
     linea_base,
 )
 from estalvia.engine.calc import Periodo, SiteParams
-from estalvia.engine.errors import MissingRuleError
+from estalvia.engine.errors import EngineError
 from estalvia.engine.periods import Calendario
 from estalvia.engine.rules import RuleSet
 from estalvia.ingestion.hourly import Ingesta
@@ -64,43 +64,43 @@ class ResultadoOferta:
     atribucion: str | None = None
 
 
+MWH_A_KWH = Decimal(1000)  # la serie de mercado va en EUR/MWh (VERIFICAR la unidad)
+AVISO_CAPACIDAD_P3 = ("el pago por capacidad de 2.0TD no tiene valor en P3 en el BOE (casilla en blanco): se toma 0 "
+                      "(VERIFICAR)")
 AVISO_SIN_AJUSTES = ("la oferta no declara servicios de ajuste ni otros costes variables: no se incluyen y el coste "
                      "real será algo mayor")
 
 
-def _incompleto(oferta: OfertaIndexada, motivo: str, mercado: PriceResult | None) -> ResultadoOferta:
-    return ResultadoOferta(oferta.nombre, "indexada", oferta.capturada, None, None, False, (motivo,),
-                           mercado.capturado_en if mercado else None, mercado.atribucion if mercado else None)
+def _sin_pago_por_capacidad(tarifa: str, p: str) -> bool:
+    """El BOE (Orden TED/1524/2025) deja en blanco el pago por capacidad de P3 en 2.0TD. Es el único hueco que se
+    interpreta como 0 (VERIFICAR); cualquier otra regla que falte es un error, no un 0."""
+    return tarifa == "2.0TD" and p == "P3"
 
 
 def _regulado_eur_kwh(reglas: RuleSet, tarifa: str, periodo: Periodo, p: str) -> Decimal:
-    """Peaje + cargo + pago por capacidad de energía del periodo tarifario. El pago por capacidad de 2.0TD no tiene
-    valor en P3 (casilla en blanco en el BOE, VERIFICAR): sin regla se toma 0. Peaje y cargo son obligatorios."""
+    """Peaje + cargo + pago por capacidad de energía del periodo tarifario."""
     total = Decimal(0)
-    for kind, obligatoria in (("peaje_energia_eur_kwh", True), ("cargo_energia_eur_kwh", True),
-                              ("pago_capacidad_eur_kwh", False)):
-        try:
-            r0 = reglas.find(kind, periodo.inicio, tarifa, p)
-            r1 = reglas.find(kind, periodo.fin, tarifa, p)
-        except MissingRuleError:
-            if obligatoria:
-                raise
+    for kind in ("peaje_energia_eur_kwh", "cargo_energia_eur_kwh", "pago_capacidad_eur_kwh"):
+        if kind == "pago_capacidad_eur_kwh" and _sin_pago_por_capacidad(tarifa, p):
             continue
+        r0, r1 = reglas.find(kind, periodo.inicio, tarifa, p), reglas.find(kind, periodo.fin, tarifa, p)
         if r0.id != r1.id:
             raise FaltaDato(f"la regla {kind} del periodo {p} cambia dentro del periodo facturado")
         total += r0.value
     return total
 
 
-def _precio_por_hora(mercado: PriceResult) -> tuple[dict[datetime, Decimal], int]:
-    """EUR/MWh medio de cada hora UTC (media de sus cuartos de hora: consumo repartido por igual dentro de la hora,
-    VERIFICAR) y cuántos puntos trae cada hora completa."""
-    paso = mercado.paso or timedelta(hours=1)
-    por_hora = int(timedelta(hours=1) / paso)
-    grupos: dict[datetime, list[Decimal]] = defaultdict(list)
+def _precio_por_hora(mercado: PriceResult) -> dict[datetime, Decimal] | None:
+    """EUR/MWh medio de cada hora UTC completa (media de sus cuartos de hora: consumo repartido por igual dentro de la
+    hora, VERIFICAR). Una hora cuenta solo si trae todos sus instantes distintos. None: resolución no soportada."""
+    hora = timedelta(hours=1)
+    if not mercado.paso or mercado.paso > hora or hora % mercado.paso:
+        return None
+    por_hora = hora // mercado.paso
+    grupos: dict[datetime, dict[datetime, Decimal]] = defaultdict(dict)
     for punto in mercado.puntos:
-        grupos[punto.instante_utc.replace(minute=0, second=0, microsecond=0)].append(punto.eur_mwh)
-    return {h: sum(v, Decimal(0)) / len(v) for h, v in grupos.items() if len(v) == por_hora}, por_hora
+        grupos[punto.instante_utc.replace(minute=0, second=0, microsecond=0)][punto.instante_utc] = punto.eur_mwh
+    return {h: sum(v.values(), Decimal(0)) / len(v) for h, v in grupos.items() if len(v) == por_hora}
 
 
 def _evaluar_indexada(site: SiteParams, ingesta: Ingesta, calendario: Calendario, reglas: RuleSet, periodo: Periodo,
@@ -109,7 +109,9 @@ def _evaluar_indexada(site: SiteParams, ingesta: Ingesta, calendario: Calendario
     """Precios por periodo tarifario (media horaria ponderada por el consumo) o el motivo por el que no se puede."""
     if mercado is None or not mercado.completo:
         return f"sin precios de mercado: {mercado.error if mercado and mercado.error else 'no disponibles'}"
-    precio_hora, _ = _precio_por_hora(mercado)
+    precio_hora = _precio_por_hora(mercado)
+    if precio_hora is None:
+        return f"resolución de los precios de mercado no soportada: {mercado.paso}"
     desde, hasta = limites_del_periodo(periodo)
     horas = [(x, p) for x, p in ingesta.etiquetadas(calendario, tarifa=site.tarifa) if desde <= x.instante_utc < hasta]
     faltan = sorted({x.instante_utc for x, _ in horas if x.instante_utc not in precio_hora})
@@ -118,28 +120,41 @@ def _evaluar_indexada(site: SiteParams, ingesta: Ingesta, calendario: Calendario
     otros = oferta.otros_eur_kwh or Decimal(0)
     coste, kwh = defaultdict(Decimal), defaultdict(Decimal)
     for x, p in horas:
-        coste[p] += x.kwh * (precio_hora[x.instante_utc] / 1000 + oferta.margen_eur_kwh + otros)
+        coste[p] += x.kwh * (precio_hora[x.instante_utc] / MWH_A_KWH + oferta.margen_eur_kwh + otros)
         kwh[p] += x.kwh
     efectivo = {p: (coste[p] / kwh[p] if kwh[p] else Decimal(0)) + _regulado_eur_kwh(reglas, site.tarifa, periodo, p)
                 for p in kwh}
-    avisos = (AVISO_SIN_AJUSTES,) if oferta.otros_eur_kwh is None else ()
+    avisos = ((AVISO_CAPACIDAD_P3,) if any(_sin_pago_por_capacidad(site.tarifa, p) for p in kwh) else ()) + (
+        (AVISO_SIN_AJUSTES,) if oferta.otros_eur_kwh is None else ())
     return PrecioContrato(efectivo, oferta.potencia_eur_kw_anio), avisos
+
+
+def _sin_calcular(oferta: OfertaFija | OfertaIndexada, motivo: str, mercado: PriceResult | None) -> ResultadoOferta:
+    es_fija = isinstance(oferta, OfertaFija)
+    return ResultadoOferta(oferta.nombre, "fija" if es_fija else "indexada", oferta.capturada, None, None, False,
+                           (motivo,), None if es_fija or not mercado else mercado.capturado_en,
+                           None if es_fija or not mercado else mercado.atribucion)
 
 
 def evaluar_oferta(site: SiteParams, ingesta: Ingesta, calendario: Calendario, reglas: RuleSet,
                    contrato: PrecioContrato, periodo: Periodo, oferta: OfertaFija | OfertaIndexada,
                    mercado: PriceResult | None = None) -> ResultadoOferta:
-    """Recalcula la factura con la oferta y la compara con la línea base del contrato actual."""
+    """Recalcula la factura con la oferta y la compara con la línea base del contrato actual. Si la oferta no se puede
+    calcular (falta un precio o una regla, o precios de mercado), el resultado sale marcado y sin importe."""
     base = linea_base(site, ingesta, calendario, reglas, contrato, periodo)
     kwh = consumo_por_periodo(site, ingesta, calendario, periodo)
-    if isinstance(oferta, OfertaFija):
-        total = desglose(site, kwh, reglas, PrecioContrato(oferta.energia_eur_kwh, oferta.potencia_eur_kw_anio),
-                         periodo).total
-        return ResultadoOferta(oferta.nombre, "fija", oferta.capturada, total, base.total - total, True)
-    calculo = _evaluar_indexada(site, ingesta, calendario, reglas, periodo, oferta, mercado)
-    if isinstance(calculo, str):
-        return _incompleto(oferta, calculo, mercado)
-    precios, avisos = calculo
-    total = desglose(site, kwh, reglas, precios, periodo).total
-    return ResultadoOferta(oferta.nombre, "indexada", oferta.capturada, total, base.total - total, True, avisos,
-                           mercado.capturado_en, mercado.atribucion)
+    try:
+        if isinstance(oferta, OfertaFija):
+            precios, avisos = PrecioContrato(oferta.energia_eur_kwh, oferta.potencia_eur_kw_anio), ()
+        else:
+            calculo = _evaluar_indexada(site, ingesta, calendario, reglas, periodo, oferta, mercado)
+            if isinstance(calculo, str):
+                return _sin_calcular(oferta, calculo, mercado)
+            precios, avisos = calculo
+        total = desglose(site, kwh, reglas, precios, periodo).total
+    except (FaltaDato, EngineError) as e:
+        return _sin_calcular(oferta, f"no se puede calcular la oferta: {e}", mercado)
+    es_fija = isinstance(oferta, OfertaFija)
+    return ResultadoOferta(oferta.nombre, "fija" if es_fija else "indexada", oferta.capturada, total,
+                           base.total - total, True, avisos, None if es_fija else mercado.capturado_en,
+                           None if es_fija else mercado.atribucion)
