@@ -153,3 +153,14 @@ def test_un_contrato_malo_se_explica_con_200_y_nunca_da_500(texto):
     with override_settings(**{**CONFIG, "CONTRATO": _contrato_con(texto)}):
         r = sesion().get("/ahorro/")
     assert r.status_code == 200 and "aviso" in r.content.decode() and "Traceback" not in r.content.decode()
+
+
+@override_settings(**CONFIG)
+def test_con_precio_unico_el_informe_explica_por_que_no_hay_cambio_de_horario_y_no_felicita():
+    ruta = _TMP / "plano.yaml"
+    antes, despues = 'P1: "0.20", P2: "0.15", P3: "0.10"', 'P1: "0.12", P2: "0.12", P3: "0.12"'
+    ruta.write_text(CONTRATO.read_text(encoding="utf-8").replace(antes, despues), encoding="utf-8")
+    with override_settings(**{**CONFIG, "CONTRATO": str(ruta)}):
+        texto = texto_de_resultados(sesion().get("/ahorro/").content.decode())
+    assert "mismo precio" in texto and "cambiar de hora no" in texto
+    assert "ningún cambio de horario" not in texto

@@ -148,6 +148,11 @@ class Informe:
     horas_caras: tuple[HoraCara, ...]
     hallazgos: tuple[Hallazgo, ...]
 
+    @property
+    def precio_unico(self) -> bool:
+        """El contrato cobra la energía al mismo precio a cualquier hora: mover consumo de hora no cambia nada."""
+        return len({p.precio_kwh for p in self.periodos_tarifarios}) == 1
+
 
 def _reparto(lineas, total: Decimal) -> tuple[Parte, ...]:
     importes = {nombre: Decimal(0) for nombre, _ in GRUPOS}

@@ -127,3 +127,10 @@ def test_el_perfil_de_un_dia_tipo_da_el_kwh_medio_por_hora_de_laborables_y_de_fi
     i = informe_viernes_sabado()
     assert i.perfil_laborable == (D(1),) * 24 and i.perfil_finde == (D(2),) * 24
     assert informe().perfil_finde == (None,) * 24  # un lunes: no hay fin de semana
+
+
+def test_con_el_mismo_precio_en_todos_los_periodos_el_informe_lo_dice():
+    plano = PrecioContrato(energia_eur_kwh={"P1": D("0.12"), "P2": D("0.12"), "P3": D("0.12")},
+                           potencia_eur_kw_anio=PRECIOS.potencia_eur_kw_anio)
+    i = construir_informe(SITIO, UN_DIA, CALENDARIO, REGLAS, plano, LUNES)
+    assert i.precio_unico and i.hallazgos == () and not informe().precio_unico

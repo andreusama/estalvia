@@ -85,8 +85,10 @@
       <p class="nota"><strong>Confianza: {{ h.confianza }}.</strong> {% if h.confianza == "baja" %}Tenemos menos de 12 meses completos de consumo.{% elif h.confianza == "media" %}Hay 12 meses, pero parte de las lecturas son estimadas.{% else %}Hay 12 meses de lecturas reales.{% endif %} El ahorro anual repite el ahorro de este periodo durante 365 días y no tiene en cuenta otras estaciones. El 100 % supone cambiar todo el consumo de ese periodo, algo que quizá tu actividad no permita.</p>
     </article>
     {% endfor %}
+    {% elif informe.precio_unico %}
+    <p>Tu contrato cobra la energía al <strong>mismo precio a cualquier hora</strong>, así que cambiar de hora no reduce la factura. Eso no es una buena noticia ni una mala: solo quiere decir que el ahorro, si existe, no está en el horario. Puede estar en el precio por kWh que pagas o en la potencia que tienes contratada, y este informe todavía no los analiza.</p>
     {% else %}
-    <p>Con tu consumo actual no vemos ningún cambio de horario que reduzca la factura.</p>
+    <p>Con tu consumo y tus precios actuales, pasar consumo a horas más baratas no reduce la factura.</p>
     {% endif %}
   </section>
 
