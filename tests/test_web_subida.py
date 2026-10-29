@@ -58,6 +58,22 @@ def test_el_contrato_sale_de_las_lineas_de_la_factura_por_nombre_y_periodo():
     assert (c.periodo.inicio.isoformat(), c.periodo.fin.isoformat()) == ("2026-06-01", "2026-06-30")
 
 
+def test_facturas_en_catalan_terme_fix_terme_d_energia_lloguer_y_bo_social():
+    conceptos = [
+        {"nombre": "Terme fix P1", "cantidad": "4", "precio": "0.073", "importe": "8.76"},
+        {"nombre": "Terme fix P2", "cantidad": "4", "precio": "0.0082", "importe": "0.98"},
+        {"nombre": "Terme d'energia P1", "cantidad": "10", "precio": "0.20", "importe": "2.00"},
+        {"nombre": "Terme d'energia P2", "cantidad": "10", "precio": "0.15", "importe": "1.50"},
+        {"nombre": "Terme d'energia P3", "cantidad": "10", "precio": "0.10", "importe": "1.00"},
+        {"nombre": "Finançament Bo Social (01SEP-02OCT)", "cantidad": "32", "precio": "0.02", "importe": "0.64"},
+        {"nombre": "Lloguer", "importe": "0.85"},
+    ]
+    c = contrato_desde_factura(datos_factura(conceptos=conceptos))
+    assert c.precios.potencia_eur_kw_anio == {"P1": D("0.073") * 365, "P2": D("0.0082") * 365}
+    assert c.precios.energia_eur_kwh["P3"] == D("0.10") and c.site.alquiler_importe == D("0.85")
+    assert c.site.aplica_bono_social is True
+
+
 def test_si_falta_un_precio_no_se_estima_y_el_error_dice_cual():
     sin_p2 = [x for x in datos_factura().conceptos if x.nombre != "Energía P2"]
     with pytest.raises(ErrorContrato, match="energía P2"):

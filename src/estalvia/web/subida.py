@@ -28,16 +28,24 @@ def _norma(nombre: str) -> str:
     return "".join(c for c in sin_tildes if unicodedata.category(c) != "Mn")
 
 
-def _precios(f: FacturaExtraida, palabra: str, excluir: tuple[str, ...]) -> dict[str, Decimal]:
+# Nombres con que las facturas (castellano y catalán) rotulan cada línea. Una factura nueva puede traer otros:
+# entonces falta el precio y el error lo dice, no se adivina.
+NOMBRES_ENERGIA = ("energ",)
+NOMBRES_POTENCIA = ("potencia", "terme fix", "termino fijo")
+NOMBRES_BONO_SOCIAL = ("bono social", "bo social")
+NOMBRES_ALQUILER = ("alquiler", "lloguer")
+
+
+def _precios(f: FacturaExtraida, nombres: tuple[str, ...], excluir: tuple[str, ...]) -> dict[str, Decimal]:
     precios: dict[str, Decimal] = {}
     for c in f.conceptos:
         n = _norma(c.nombre)
         m = _PERIODO.search(n)
-        if palabra not in n or m is None or c.precio is None or any(x in n for x in excluir):
+        if not any(x in n for x in nombres) or m is None or c.precio is None or any(x in n for x in excluir):
             continue
         periodo = f"P{m.group(1)}"
         if periodo in precios and precios[periodo] != c.precio:
-            raise ErrorContrato(f"hay varios precios distintos para {palabra} {periodo}")
+            raise ErrorContrato(f"hay varios precios distintos para {n.strip()}")
         precios[periodo] = c.precio
     return precios
 
@@ -46,8 +54,8 @@ def contrato_desde_factura(f: FacturaExtraida) -> Contrato:
     tarifa = f.tarifa_acceso
     if tarifa == "otra":
         raise ErrorContrato("tarifa: no se reconoce la tarifa de acceso de la factura")
-    energia = _precios(f, "energ", ("reactiv", "excedent", "compens"))
-    por_dia = _precios(f, "potencia", ("exceso", "maxim", "reactiv"))
+    energia = _precios(f, NOMBRES_ENERGIA, ("reactiv", "excedent", "compens"))
+    por_dia = _precios(f, NOMBRES_POTENCIA, ("exceso", "maxim", "reactiv"))
     esperados = {"energía": [p for p in PERIODOS_ENERGIA[tarifa] if p in f.energia_kwh],
                  "potencia": [p for p in PERIODOS_POTENCIA[tarifa] if p in f.potencia_contratada_kw
                               and f.potencia_contratada_kw[p] > 0]}
@@ -63,9 +71,9 @@ def contrato_desde_factura(f: FacturaExtraida) -> Contrato:
     dias_anio = 366 if anio % 4 == 0 and (anio % 100 != 0 or anio % 400 == 0) else 365
     potencia = {p: v for p, v in f.potencia_contratada_kw.items() if p in por_dia}
     nombres = [_norma(c.nombre) for c in f.conceptos]
-    alquiler = sum((c.importe for c in f.conceptos if "alquiler" in _norma(c.nombre)), Decimal(0))
+    alquiler = sum((c.importe for c in f.conceptos if any(x in _norma(c.nombre) for x in NOMBRES_ALQUILER)), Decimal(0))
     site = SiteParams(tarifa, potencia, alquiler_importe=alquiler or None,
-                      aplica_bono_social=any("bono social" in n for n in nombres))
+                      aplica_bono_social=any(x in n for n in nombres for x in NOMBRES_BONO_SOCIAL))
     return Contrato(site, PrecioContrato(energia, {p: por_dia[p] * dias_anio for p in potencia}),
                     Periodo(f.periodo_facturado.inicio, f.periodo_facturado.fin), f.total)
 
