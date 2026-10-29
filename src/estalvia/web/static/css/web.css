@@ -1,5 +1,7 @@
-:root { --fondo: #fff; --texto: #1c1c1c; --error: #a51d2d; }
-@media (prefers-color-scheme: dark) { :root { --fondo: #1c1c1c; --texto: #eee; --error: #ff7b63; } }
+:root { --fondo: #fff; --texto: #1c1c1c; --error: #a51d2d; --tarjeta: #f5f6f8; --borde: #d8dbe0; --suave: #5b6068;
+        --cara: #c01c28; --normal: #b87a00; --barata: #1f8a58; --acento: #1a5fb4; --mapa: 26 95 180; }
+@media (prefers-color-scheme: dark) { :root { --fondo: #1c1c1c; --texto: #eee; --error: #ff7b63; --tarjeta: #26282c; --borde: #3b3e44;
+        --suave: #a6abb3; --cara: #ff7b63; --normal: #f5c211; --barata: #57e389; --acento: #78aeed; --mapa: 120 174 237; } }
 body { background: var(--fondo); color: var(--texto); font-family: system-ui, sans-serif; margin: 0; }
 main { max-width: 56rem; margin: 0 auto; padding: 1rem 16px; }
 .error { color: var(--error); }
@@ -10,3 +12,52 @@ input, button { font: inherit; padding: .4rem .6rem; }
 #zona.sobre, #zona:hover { opacity: 1; background: rgba(127, 127, 127, .12); }
 #ficheros { position: absolute; width: 1px; height: 1px; opacity: 0; }
 #ficheros:focus-visible + #estado-subida, #ficheros:focus-visible ~ #zona { outline: 2px solid currentColor; }
+
+/* Informe (#33) */
+.cabecera { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.cabecera nav { display: flex; gap: 1rem; align-items: center; }
+.bloque { margin: 2.5rem 0; }
+.bloque h2 { font-size: 1.5rem; border-bottom: 2px solid var(--acento); padding-bottom: .3rem; }
+.total { margin: 1rem 0; }
+.cifra { font-size: 3rem; font-weight: 700; display: block; line-height: 1.1; }
+.sub, .explica, .nota, .horario { color: var(--suave); }
+.nota { font-size: .9rem; }
+.dos-columnas { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; align-items: center; margin: 1rem 0; }
+.leyenda { list-style: none; padding: 0; margin: 0; display: grid; gap: .75rem; }
+.leyenda li { display: flex; gap: .75rem; align-items: flex-start; }
+.muestra { flex: none; width: 1rem; height: 1rem; border-radius: 3px; margin-top: .2rem; background: var(--suave); }
+.g-potencia-contratada .muestra { background: #1a5fb4; }
+.g-energia-consumida .muestra { background: #e5a50a; }
+.g-otros-costes-fijos .muestra { background: #613583; }
+.g-impuestos .muestra { background: #5e5c64; }
+.franjas { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem; margin: 1rem 0; }
+.franja, .tarjeta, .hallazgo { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px; padding: 1rem; }
+.franja { border-top: 6px solid var(--suave); }
+.nivel-cara { border-top-color: var(--cara); }
+.nivel-normal { border-top-color: var(--normal); }
+.nivel-barata { border-top-color: var(--barata); }
+.franja h3, .tarjeta h3, .hallazgo h3 { margin: 0 0 .25rem; font-size: 1.1rem; }
+.detalle { color: var(--suave); font-weight: 400; font-size: .85em; }
+.cifra-media { font-size: 1.8rem; font-weight: 700; margin: .25rem 0; }
+.destacada { border-left: 6px solid var(--acento); }
+.mapa { border-collapse: separate; border-spacing: 2px; width: 100%; table-layout: fixed; font-size: .75rem; }
+.mapa thead th { overflow: visible; }
+.mapa tbody th { width: 5.5rem; }
+.mapa caption { text-align: left; color: var(--suave); padding-bottom: .5rem; }
+.mapa th { font-weight: 400; color: var(--suave); text-align: left; white-space: nowrap; }
+.mapa thead th { text-align: center; }
+.mapa td { height: 1.4rem; border-radius: 3px; background: rgb(var(--mapa) / .06); }
+.mapa .i1 { background: rgb(var(--mapa) / .15); } .mapa .i2 { background: rgb(var(--mapa) / .25); }
+.mapa .i3 { background: rgb(var(--mapa) / .35); } .mapa .i4 { background: rgb(var(--mapa) / .45); }
+.mapa .i5 { background: rgb(var(--mapa) / .55); } .mapa .i6 { background: rgb(var(--mapa) / .65); }
+.mapa .i7 { background: rgb(var(--mapa) / .75); } .mapa .i8 { background: rgb(var(--mapa) / .87); }
+.mapa .i9 { background: rgb(var(--mapa) / 1); }
+.solo-lectores { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.hallazgo { margin: 1rem 0; }
+.hallazgo table { width: 100%; border-collapse: collapse; margin: .75rem 0; }
+.hallazgo th, .hallazgo td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--borde); }
+.hallazgo .techo { color: var(--suave); }
+.ayuda { margin: 2rem 0; }
+.aviso-legal { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--borde); color: var(--suave); font-size: .85rem; }
+.grafico { position: relative; height: 16rem; min-width: 0; }
+.grafico.ancho { height: 14rem; margin: 1rem 0; }

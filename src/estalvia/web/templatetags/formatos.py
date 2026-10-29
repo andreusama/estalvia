@@ -25,3 +25,14 @@ def numero(valor: Decimal) -> str:
     q = valor.quantize(Decimal("0.001"), rounding=ROUND_HALF_UP).normalize()
     dec = max(0, -q.as_tuple().exponent)
     return _es(q.quantize(Decimal(1).scaleb(-dec)), dec)
+
+
+@register.filter
+def fecha(valor) -> str:
+    return valor.strftime("%d/%m/%Y")
+
+
+@register.filter
+def kwh(valor: Decimal) -> str:
+    """kWh para leer de un vistazo: un decimal desde 10 kWh, dos por debajo (0,97 no puede quedar en 1,0)."""
+    return _es(valor, 1 if abs(valor) >= 10 else 2)

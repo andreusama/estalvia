@@ -5,7 +5,7 @@ import os
 import tempfile
 import time
 from collections import defaultdict
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from pathlib import Path
 
 from django.conf import settings
@@ -15,13 +15,12 @@ from django.views.decorators.http import require_http_methods
 
 from estalvia.ai.gateway import ClienteAnthropic, ErrorConfig, clave_enmascarado
 from estalvia.ai.masking import sellar
-from estalvia.analysis.habito import KWH_CANDIDATO, Habito, HabitoImposible, candidatos, evaluar_habito
-from estalvia.analysis.nucleo import FaltaDato, linea_base
+from estalvia.analysis.informe import construir_informe
+from estalvia.analysis.nucleo import FaltaDato
 from estalvia.engine.errors import EngineError
 from estalvia.engine.periods import Calendario
 from estalvia.engine.rules import RuleSet
 from estalvia.extraction.extractor import Ajustes, CacheEnDisco, extraer_factura
-from estalvia.extraction.schema import PERIODOS_ENERGIA
 from estalvia.extraction.text import ErrorTextoPdf, texto_de_pdf
 from estalvia.ingestion.hourly import ingest_hourly
 
@@ -35,7 +34,8 @@ BLOQUEO_SEGUNDOS = 60
 FALLOS: list[float] = []  # instantes (monotónicos) de los intentos fallidos recientes
 
 ESTATICOS = {"vendor/chart.umd.js": "text/javascript", "js/curva.js": "text/javascript",
-             "js/subir.js": "text/javascript", "css/web.css": "text/css"}
+             "js/subir.js": "text/javascript", "js/informe.js": "text/javascript",
+             "css/web.css": "text/css"}
 
 MAX_CSV = 2 * 1024 * 1024
 MAX_PDF = 5 * 1024 * 1024
@@ -60,7 +60,7 @@ def entrar(request):
         if hmac.compare_digest(enviada, settings.WEB_PASSWORD.encode()):
             request.session.flush()
             request.session["autenticado"] = True
-            return redirect("/")
+            return redirect("/ahorro/")
         FALLOS.append(time.monotonic())
         return render(request, "web/login.html", {"error": "Contraseña incorrecta."})
     return render(request, "web/login.html", {})
@@ -127,8 +127,17 @@ def _cargar_reglas():
     return RuleSet([r for f in sorted((RAIZ / "rules").glob("*.yaml")) for r in RuleSet.from_yaml(f).rules])
 
 
+def _datos_graficos(informe) -> dict:
+    """Solo para dibujar (los importes ya los calculó el motor): reparto del gasto y coste de energía por franja."""
+    return {"reparto": {"nombres": [p.nombre for p in informe.reparto],
+                        "importes": [float(p.importe) for p in informe.reparto]},
+            "franjas": {"nombres": [f.nombre for f in informe.franjas],
+                        "niveles": [f.nivel for f in informe.franjas],
+                        "costes": [float(f.coste_energia) for f in informe.franjas]}}
+
+
 def ahorro(request):
-    """Línea base, hábitos candidatos y, si se pide, un hábito propio. Todo importe sale del motor."""
+    """Informe automático: qué gasta, en qué y cómo puede pagar menos. Todo importe sale del motor."""
     if not request.session.get("autenticado"):
         return redirect("/login/")
     ctx: dict = {}
@@ -148,33 +157,15 @@ def ahorro(request):
         ctx["aviso"] = "No se pudo leer el CSV de consumo (ruta o formato)."
         return render(request, "web/ahorro.html", ctx)
     reglas, calendario = _cargar_reglas(), Calendario.desde_directorio(RAIZ / "rules/calendar")
-    args = (contrato.site, ingesta, calendario, reglas, contrato.precios, contrato.periodo)
     try:
-        base = linea_base(*args)
+        informe = construir_informe(contrato.site, ingesta, calendario, reglas, contrato.precios, contrato.periodo)
         total = contrato.total_factura
-        if total and abs(base.total - total) / total > TOLERANCIA_LINEA_BASE:
-            ctx["aviso"] = (f"La línea base recalculada ({base.total} €) no coincide con el total de la factura "
+        if total and abs(informe.total - total) / total > TOLERANCIA_LINEA_BASE:
+            ctx["aviso"] = (f"La línea base recalculada ({informe.total} €) no coincide con el total de la factura "
                             f"({total} €): no se muestra el ahorro. Revisa que el CSV cubra el periodo facturado.")
             return render(request, "web/ahorro.html", ctx)
-        ctx["base"] = base
-        ctx["candidatos"] = candidatos(*args)
-        ctx["kwh_candidato"] = KWH_CANDIDATO
-        ctx["periodos"] = PERIODOS_ENERGIA[contrato.site.tarifa]
-        pedido = {k: request.GET.get(k, "").strip() for k in ("origen", "destino", "kwh")}
-        if all(pedido.values()):
-            ctx["pedido"] = pedido
-            try:
-                kwh = Decimal(pedido["kwh"].replace(",", "."))
-            except InvalidOperation:
-                ctx["error_habito"] = "los kWh deben ser un número"
-            else:
-                try:
-                    ev = evaluar_habito(*args, Habito(pedido["origen"], pedido["destino"], kwh))
-                    anual = ev.ahorro_anual_orientativo
-                    ctx["evaluacion"] = ev
-                    ctx["filas"] = [(pct, a, anual[pct]) for pct, a in ev.ahorro.items()]
-                except HabitoImposible as e:
-                    ctx["error_habito"] = str(e)
+        ctx.update(informe=informe, graficos=_datos_graficos(informe), dias=len(contrato.periodo.dias()),
+                   horas=range(24))
     except (FaltaDato, EngineError) as e:
         ctx["aviso"] = f"No se puede calcular: {e}"
     except (ValueError, ArithmeticError):

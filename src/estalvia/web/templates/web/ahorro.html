@@ -1,49 +1,98 @@
 {% extends "web/base.html" %}
 {% load formatos %}
-{% block titulo %}Ahorro por hábito{% endblock %}
+{% block titulo %}Tu informe de luz{% endblock %}
 {% block contenido %}
-<h1>Ahorro por hábito</h1>
-<nav><a href="/">Curva horaria</a></nav>
+<header class="cabecera">
+  <h1>Tu informe de luz</h1>
+  <nav><a href="/">Curva horaria</a>
+    <form method="post" action="/logout/">{% csrf_token %}<button type="submit">Salir</button></form></nav>
+</header>
 {% include "web/_subida.html" %}
 {% if aviso %}<p class="aviso">{{ aviso }}</p>{% endif %}
-{% if base %}
+{% if informe %}
 <section id="resultados">
-  <h2>Línea base</h2>
-  <p>Factura recalculada con el consumo real: <strong>{{ base.total|eur }}</strong></p>
-  <table>
-    <thead><tr><th>Concepto</th><th>Importe</th></tr></thead>
-    <tbody>{% for l in base.lineas %}<tr><td>{{ l.concepto }}</td><td>{{ l.importe|eur }}</td></tr>{% endfor %}</tbody>
-  </table>
+  <section id="gasto" class="bloque">
+    <h2>¿Cuánto gasto?</h2>
+    <p class="total"><span class="cifra">{{ informe.total|eur }}</span>
+      <span class="sub">entre el {{ informe.periodo.inicio|fecha }} y el {{ informe.periodo.fin|fecha }} ({{ dias }} días)</span></p>
+    <p>Una factura de luz se compone de varias partes. Así se reparte lo que pagas:</p>
+    <div class="dos-columnas">
+      <div class="grafico"><canvas id="grafico-reparto" role="img" aria-label="Reparto del gasto: {% for p in informe.reparto %}{{ p.nombre }} {{ p.porcentaje|numero }} %{% if not forloop.last %}, {% endif %}{% endfor %}"></canvas></div>
+      <ul class="leyenda">{% for p in informe.reparto %}
+        <li class="g-{{ p.nombre|slugify }}"><span class="muestra"></span>
+          <div><strong>{{ p.nombre }}</strong>: {{ p.importe|eur }} ({{ p.porcentaje|numero }} %)<br>
+          <span class="explica">{{ p.explicacion }}</span></div></li>
+      {% endfor %}</ul>
+    </div>
+  </section>
 
-  <h2>Hábitos candidatos</h2>
-  <p>Ahorro de mover {{ kwh_candidato|numero }} kWh de un periodo a otro, del que más ahorra al que menos.</p>
-  <table>
-    <thead><tr><th>Mover de</th><th>A</th><th>Ahorro</th><th></th></tr></thead>
-    <tbody>{% for c in candidatos %}
-      <tr data-habito="{{ c.origen }}-{{ c.destino }}"><td>{{ c.origen }}</td><td>{{ c.destino }}</td>
-        <td>{{ c.ahorro_por_kwh|eur }}</td><td>{% if c.ahorro_por_kwh < 0 %}No conviene{% endif %}</td></tr>
-    {% endfor %}</tbody>
-  </table>
+  <section id="donde" class="bloque">
+    <h2>¿En qué lo gasto?</h2>
+    <p>El precio de la electricidad cambia según la hora. Esto es lo que consumes en cada tramo del día y lo que te cuesta la energía.</p>
+    <div class="franjas">{% for f in informe.franjas %}
+      <article class="franja nivel-{{ f.nivel }}">
+        <h3>{{ f.nombre }} <span class="detalle">({{ f.periodo }})</span></h3>
+        {% if f.horario %}<p class="horario">{{ f.horario }}</p>{% endif %}
+        <p class="cifra-media">{{ f.coste_energia|eur }}</p>
+        <p>Consumes {{ f.kwh|kwh }} kWh ({{ f.porcentaje_consumo|numero }} % del total) a {{ f.precio_kwh|numero }} €/kWh.</p>
+      </article>
+    {% endfor %}</div>
+    {% if informe.franjas.0.horario %}<p class="nota">Sábados, domingos y festivos nacionales todo el día es hora barata. Estos horarios valen de lunes a viernes.</p>{% endif %}
+    <div class="grafico ancho"><canvas id="grafico-franjas" role="img" aria-label="Coste de la energía por tramo horario"></canvas></div>
 
-  {% if evaluacion %}
-  <h2>Tu hábito: {{ evaluacion.habito.kwh|numero }} kWh de {{ evaluacion.habito.origen }} a {{ evaluacion.habito.destino }}</h2>
-  <table>
-    <thead><tr><th>Parte del cambio</th><th>Ahorro del periodo</th><th>Ahorro anual orientativo</th></tr></thead>
-    <tbody>{% for pct, a, anual in filas %}
-      <tr><td>{{ pct }} %</td><td>{{ a|eur }}</td><td>{{ anual|eur }}</td></tr>
-    {% endfor %}</tbody>
-  </table>
-  <p>Confianza: <strong>{{ evaluacion.confianza }}</strong>. El ahorro anual es solo orientativo: extrapola el periodo facturado y no mira otras estaciones. Es informativo, no garantiza ningún ahorro y supone que el cambio es posible en la planta.</p>
-  {% endif %}
+    <h3>¿Cuándo consumes?</h3>
+    <table id="mapa-calor" class="mapa">
+      <caption>Consumo medio por hora (kWh) según el día de la semana. Cuanto más oscuro, más consumo.</caption>
+      <thead><tr><th scope="col"><span class="solo-lectores">Día</span></th>{% for h in horas %}<th scope="col">{% if h|divisibleby:3 %}{{ h }}{% endif %}</th>{% endfor %}</tr></thead>
+      <tbody>{% for fila in informe.mapa %}<tr><th scope="row">{{ fila.dia }}</th>{% for c in fila.celdas %}<td class="i{{ c.intensidad }}" title="{% if c.kwh is None %}sin datos{% else %}{{ c.kwh|kwh }} kWh{% endif %}"></td>{% endfor %}</tr>{% endfor %}</tbody>
+    </table>
+    <p class="nota">Las horas van de 0 a 23 (hora local). Un cuadro vacío significa que ese día de la semana no está en el periodo de la factura.</p>
+
+    <div class="dos-columnas">
+      <article class="tarjeta"><h3>Días laborables</h3>
+        {% if informe.laborables.dias %}<p>{{ informe.laborables.dias }} días: <strong>{{ informe.laborables.kwh_por_dia|kwh }} kWh</strong> de media al día. La energía de esos días suma {{ informe.laborables.coste_energia|eur }}.</p>{% else %}<p>No hay días laborables en este periodo.</p>{% endif %}</article>
+      <article class="tarjeta"><h3>Fines de semana y festivos</h3>
+        {% if informe.finde.dias %}<p>{{ informe.finde.dias }} días: <strong>{{ informe.finde.kwh_por_dia|kwh }} kWh</strong> de media al día. La energía de esos días suma {{ informe.finde.coste_energia|eur }}.</p>{% else %}<p>No hay fines de semana ni festivos en este periodo.</p>{% endif %}</article>
+    </div>
+
+    <article class="tarjeta destacada"><h3>Tu consumo de fondo</h3>
+      <p>En 9 de cada 10 horas consumes al menos <strong>{{ informe.fondo.kwh_hora|kwh }} kWh</strong>. Es lo que gastas aunque la actividad baje: {{ informe.fondo.porcentaje_consumo|numero }} % de todo tu consumo, {{ informe.fondo.coste_energia|eur }} de energía en este periodo. Suele corresponder a equipos que funcionan siempre.</p></article>
+
+    <div class="dos-columnas">
+      <div><h3>Los días más caros</h3><ol>{% for d in informe.dias_caros %}<li>{{ d.dia|fecha }}: {{ d.coste_energia|eur }} de energía ({{ d.kwh|kwh }} kWh)</li>{% endfor %}</ol></div>
+      <div><h3>Las horas del día más caras</h3><ol>{% for h in informe.horas_caras %}<li>De {{ h.hora }}:00 a {{ h.hora|add:1 }}:00 h: {{ h.coste_energia|eur }} de energía en todo el periodo</li>{% endfor %}</ol></div>
+    </div>
+  </section>
+
+  <section id="ahorrar" class="bloque">
+    <h2>¿Cómo puedo pagar menos?</h2>
+    {% if informe.hallazgos %}
+    <p>Calculamos qué pasaría si parte del consumo de un tramo caro se hiciera en un tramo más barato. No sabemos qué máquina consume cada kWh, así que te damos una escalera: cuanto más consumo cambies de hora, más ahorras.</p>
+    {% for h in informe.hallazgos %}
+    <article class="hallazgo">
+      <h3>Pasar consumo de «{{ h.origen_franja.nombre|lower }}» a «{{ h.destino_franja.nombre|lower }}»</h3>
+      <p>Consumes {{ h.kwh_origen|kwh }} kWh en {{ h.origen_franja.nombre|lower }}{% if h.origen_franja.horario %} ({{ h.origen_franja.horario }}){% endif %}. Cada kWh que pase a {{ h.destino_franja.nombre|lower }} se paga menos.</p>
+      <table>
+        <thead><tr><th scope="col">Si cambias de hora</th><th scope="col">Ahorro en este periodo</th><th scope="col">Ahorro al año (orientativo)</th></tr></thead>
+        <tbody>{% for pct, kwh, a, anual in h.escalera %}
+          <tr{% if pct == 100 %} class="techo"{% endif %}><td>{{ pct }} % ({{ kwh|kwh }} kWh){% if pct == 100 %} <em>techo teórico</em>{% endif %}</td><td>{{ a|eur }}</td><td>{{ anual|eur }}</td></tr>
+        {% endfor %}</tbody>
+      </table>
+      <p class="nota"><strong>Confianza: {{ h.confianza }}.</strong> {% if h.confianza == "baja" %}Tenemos menos de 12 meses completos de consumo.{% elif h.confianza == "media" %}Hay 12 meses, pero parte de las lecturas son estimadas.{% else %}Hay 12 meses de lecturas reales.{% endif %} El ahorro anual repite el ahorro de este periodo durante 365 días y no tiene en cuenta otras estaciones. El 100 % supone cambiar todo el consumo de ese tramo, algo que quizá tu actividad no permita.</p>
+    </article>
+    {% endfor %}
+    {% else %}
+    <p>Con tu consumo actual no vemos ningún cambio de horario que reduzca la factura.</p>
+    {% endif %}
+  </section>
+
+  <details class="ayuda"><summary>Qué son P1, P2 y P3</summary>
+    <p>En tu tarifa el día se divide en tres tramos con precios distintos: P1 son las horas caras (punta), P2 las normales (llano) y P3 las baratas (valle). En tu factura aparecen con esos nombres.</p></details>
+
+  <footer class="aviso-legal"><p>Este informe es informativo. Se basa en los datos facilitados por el cliente y en la normativa vigente en la fecha indicada. Las cifras de ahorro son estimaciones, no están garantizadas y dependen de que se mantengan las condiciones de consumo y de precios.</p></footer>
+  {{ graficos|json_script:"datos-informe" }}
 </section>
-
-<form method="get" action="/ahorro/">
-  <h2>Prueba tu hábito</h2>
-  {% if error_habito %}<p class="error" role="alert">{{ error_habito }}</p>{% endif %}
-  <label>Mover de <select name="origen">{% for p in periodos %}<option{% if pedido.origen == p %} selected{% endif %}>{{ p }}</option>{% endfor %}</select></label>
-  <label>a <select name="destino">{% for p in periodos %}<option{% if pedido.destino == p %} selected{% endif %}>{{ p }}</option>{% endfor %}</select></label>
-  <label>kWh del periodo <input name="kwh" inputmode="decimal" value="{{ pedido.kwh }}" required></label>
-  <button type="submit">Calcular</button>
-</form>
+<script src="/static/vendor/chart.umd.js"></script>
+<script src="/static/js/informe.js"></script>
 {% endif %}
 {% endblock %}

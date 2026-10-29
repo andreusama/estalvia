@@ -1,7 +1,7 @@
-"""Pantalla de ahorro (spec #18, ticket #27) con un contrato y un consumo SINTÉTICOS.
+"""Informe de /ahorro/ (spec #18, tickets #27 y #33) con un contrato y un consumo SINTÉTICOS.
 Lunes laborable 2026-06-08, 1 kWh por hora: 8 kWh en cada uno de P1, P2 y P3 (2.0TD); precios 0,20 / 0,15 / 0,10;
-potencia 4 kW en P1 y P2 a 30 y 3 EUR/kW/año. Línea base: total 5,03 (desglose a mano en test_analysis_habito).
-Ahorro de mover 1 kWh (a mano): P1->P3 0,12 ; P1->P2 0,06 ; P2->P3 0,06 ; P2->P1 -0,08 ; P3->P2 -0,08 ; P3->P1 -0,14."""
+potencia 4 kW en P1 y P2 a 30 y 3 EUR/kW/año. Cifras a mano en test_analysis_informe: total 5,03 ; potencia 0,36 ;
+energía 3,60 ; impuestos 1,07 ; techo P1->P3 1,01 (368,65 al año) ; P2->P3 0,50 (182,50 al año)."""
 import os
 import re
 import tempfile
@@ -43,7 +43,8 @@ def sesion():
 
 
 def texto_de_resultados(html: str) -> str:
-    seccion = re.search(r'<section id="resultados">(.*?)</section>', html, re.S).group(1)
+    seccion = re.search(r'<section id="resultados">(.*)</section>', html, re.S).group(1)
+    seccion = re.sub(r"<script.*?</script>", " ", seccion, flags=re.S)
     return re.sub(r"<[^>]+>", " ", seccion)
 
 
@@ -54,38 +55,73 @@ def test_la_pagina_exige_sesion():
 
 
 @override_settings(**CONFIG)
-def test_muestra_la_linea_base_y_los_habitos_ordenados_por_ahorro_de_1_kwh():
+def test_el_informe_responde_cuanto_gasto_en_que_y_como_pagar_menos_sin_pedir_nada():
     html = sesion().get("/ahorro/").content.decode()
-    assert "5,03" in html
-    orden = re.findall(r'data-habito="(P\d)-(P\d)"', html)
-    assert orden == [("P1", "P3"), ("P1", "P2"), ("P2", "P3"), ("P2", "P1"), ("P3", "P2"), ("P3", "P1")]
-    assert "0,12" in html and "-0,14" in html and "No conviene" in html
+    for bloque in ("gasto", "donde", "ahorrar"):
+        assert f'<section id="{bloque}"' in html
+    for pregunta in ("¿Cuánto gasto?", "¿En qué lo gasto?", "¿Cómo puedo pagar menos?"):
+        assert pregunta in html
+    assert "5,03" in html and "Potencia contratada" in html and "Energía consumida" in html
+    assert "<form method=\"get\"" not in html and "Prueba tu hábito" not in html and "data-habito" not in html
+    # solo hay un formulario: la subida de ficheros
+    assert 'id="ficheros"' in html and "name=\"origen\"" not in html and "name=\"kwh\"" not in html
 
 
 @override_settings(**CONFIG)
-def test_un_habito_propio_muestra_sensibilidad_confianza_y_anual_orientativo():
-    html = sesion().get("/ahorro/", {"origen": "P1", "destino": "P3", "kwh": "4"}).content.decode()
-    for esperado in ["0,12", "0,25", "0,50", "182,50", "orientativo", "baja"]:
-        assert esperado in html
+def test_el_mapa_de_calor_y_las_franjas_son_visibles_sin_scripts_en_linea():
+    html = sesion().get("/ahorro/").content.decode()
+    assert 'id="mapa-calor"' in html and "Lunes" in html and re.search(r'class="i9"', html)
+    assert "Horas caras" in html and "10-14 h y 18-22 h" in html and "Horas baratas" in html
+    assert "style=" not in html
+    for etiqueta in re.findall(r"<script[^>]*>", html):
+        assert 'src="/static/' in etiqueta or 'type="application/json"' in etiqueta
 
 
 @override_settings(**CONFIG)
-def test_un_habito_imposible_o_mal_escrito_se_explica_sin_romper_la_pagina():
+def test_los_hallazgos_dicen_techo_teorico_y_nunca_prometen():
+    texto = texto_de_resultados(sesion().get("/ahorro/").content.decode())
+    assert "1,01" in texto and "368,65" in texto and "0,50" in texto and "182,50" in texto
+    assert "techo teórico" in texto and "baja" in texto
+    assert "garantiz" in texto.lower()  # el aviso obligatorio dice que no están garantizadas
+    assert "te ahorrarás" not in texto.lower() and "ahorrarás seguro" not in texto.lower()
+
+
+@override_settings(**CONFIG)
+def test_el_aviso_obligatorio_del_tdd_esta_en_el_informe():
+    html = sesion().get("/ahorro/").content.decode()
+    assert ("Este informe es informativo. Se basa en los datos facilitados por el cliente y en la normativa vigente "
+            "en la fecha indicada. Las cifras de ahorro son estimaciones, no están garantizadas y dependen de que se "
+            "mantengan las condiciones de consumo y de precios.") in html
+
+
+@override_settings(**CONFIG)
+def test_los_periodos_p1_p2_p3_solo_aparecen_como_detalle_explicado():
+    html = sesion().get("/ahorro/").content.decode()
+    principal = re.sub(r"<details.*?</details>|<[^>]*class=\"detalle\"[^>]*>.*?</[a-z]+>", " ", html, flags=re.S)
+    principal = re.sub(r"<script.*?</script>", " ", principal, flags=re.S)
+    principal = re.sub(r"<[^>]+>", " ", principal)
+    assert not re.search(r"\bP[1-6]\b", principal)
+    assert "<details" in html and "Qué son P1, P2 y P3" in html
+
+
+@override_settings(**CONFIG)
+def test_toda_cifra_del_informe_sale_del_motor():
+    texto = texto_de_resultados(sesion().get("/ahorro/").content.decode())
+    motor = {D("5.03"), D("0.36"), D("3.60"), D("1.07"), D("1.01"), D("368.65"), D("0.50"), D("182.50"),
+             D("0.25"), D("0.12"), D("91.25"), D("43.80"), D("1.60"), D("1.20"), D("0.80"), D("8"),
+             D("33.3"), D("7.2"), D("71.6"), D("21.3"), D("100"), D("25"), D("50"), D("365"), D("2026"),
+             D("0.20"), D("0.15"), D("0.10"), D("0.2"), D("0.1"), D("0.15"), D("0.8"), D("1"), D("24"), D("4"),
+             D("2"), D("6"), D("9"), D("10"), D("14"), D("18"), D("22"), D("11"), D("12"), D("13"), D("0"),
+             D("3"), D("5"), D("7")} | {D(n) for n in range(0, 25)}
+    assert cifras_inexistentes(texto, motor) == []
+
+
+@override_settings(**CONFIG)
+def test_los_parametros_del_formulario_antiguo_no_rompen_ni_cambian_nada():
     c = sesion()
-    assert "origen" in c.get("/ahorro/", {"origen": "P1", "destino": "P3", "kwh": "9"}).content.decode()
-    assert c.get("/ahorro/", {"origen": "P1", "destino": "P3", "kwh": "abc"}).status_code == 200
-    assert c.get("/ahorro/", {"origen": "P9", "destino": "P3", "kwh": "1"}).status_code == 200
-
-
-@override_settings(**CONFIG)
-def test_toda_cifra_de_los_resultados_sale_del_motor():
-    html = sesion().get("/ahorro/", {"origen": "P1", "destino": "P3", "kwh": "4"}).content.decode()
-    # Líneas de la línea base, a mano: potencia 0,33 y 0,03 ; energía 1,60 / 1,20 / 0,80 ; IE 0,20 ; IVA 0,87.
-    motor = {D("0.33"), D("0.03"), D("1.60"), D("1.20"), D("0.80"), D("0.20"), D("0.87"), D("5.03"),
-             D("4.91"), D("4.78"), D("4.53"), D("0.12"), D("0.25"), D("0.50"), D("182.50"), D("91.25"),
-             D("43.80"), D("0.06"), D("-0.08"), D("0.08"), D("0.14"), D("-0.14"),
-             D(1), D(2), D(3), D(4), D(25), D(50), D(100), D(0), D(8)}
-    assert cifras_inexistentes(texto_de_resultados(html), motor) == []
+    r = c.get("/ahorro/", {"origen": "P1", "destino": "P3", "kwh": "4"})
+    quitar = lambda r: re.sub(rb'name="csrfmiddlewaretoken" value="[^"]+"', b"", r.content)  # noqa: E731
+    assert r.status_code == 200 and quitar(r) == quitar(c.get("/ahorro/"))
 
 
 @override_settings(**{**CONFIG, "CONTRATO": ""})
