@@ -46,9 +46,9 @@ def test_el_reparto_del_gasto_suma_el_total_de_la_linea_base():
     assert all(p.explicacion for p in i.reparto)
 
 
-def test_las_franjas_dicen_cuanto_consumes_y_cuanto_pagas_en_cada_una():
-    f = {x.periodo: x for x in informe().franjas}
-    assert [(x.nivel, x.kwh, x.coste_energia) for x in informe().franjas] == [
+def test_los_periodos_tarifarios_dicen_cuanto_consumes_y_cuanto_pagas_en_cada_una():
+    f = {x.codigo: x for x in informe().periodos_tarifarios}
+    assert [(x.nivel, x.kwh, x.coste_energia) for x in informe().periodos_tarifarios] == [
         ("cara", D(8), D("1.60")), ("normal", D(8), D("1.20")), ("barata", D(8), D("0.80"))]
     assert f["P1"].nombre == "Horas caras" and f["P3"].nombre == "Horas baratas"
     assert f["P1"].horario == "10-14 h y 18-22 h" and f["P3"].horario == "0-8 h"
@@ -100,8 +100,8 @@ def test_los_hallazgos_mueven_consumo_a_horas_baratas_y_se_ordenan_por_techo_de_
     assert h[0].ahorro == {25: D("0.25"), 50: D("0.50"), 100: D("1.01")}
     assert h[1].ahorro == {25: D("0.12"), 50: D("0.25"), 100: D("0.50")}
     assert h[0].ahorro_anual == {25: D("91.25"), 50: D("182.50"), 100: D("368.65")}
-    assert (h[0].origen_franja.nombre, h[0].destino_franja.nombre) == ("Horas caras", "Horas baratas")
-    assert h[1].origen_franja.nombre == "Horas normales"
+    assert (h[0].origen_periodo.nombre, h[0].destino_periodo.nombre) == ("Horas caras", "Horas baratas")
+    assert h[1].origen_periodo.nombre == "Horas normales"
 
 
 def test_el_techo_nunca_mueve_mas_de_lo_consumido_y_se_dice_que_es_teorico():
@@ -114,3 +114,16 @@ def test_sin_ahorro_posible_no_hay_hallazgos():
     todo_barato = consumo(datetime(2026, 6, 13, 22, 0, tzinfo=timezone.utc), 24)  # domingo: todo P3
     domingo = Periodo(date(2026, 6, 14), date(2026, 6, 14))
     assert informe(todo_barato, domingo).hallazgos == ()
+
+
+def test_el_alquiler_del_contador_es_una_linea_propia_del_reparto():
+    sitio = SiteParams("2.0TD", {"P1": D(4), "P2": D(4)}, alquiler_importe=D("1.00"))
+    i = construir_informe(sitio, UN_DIA, CALENDARIO, REGLAS, PRECIOS, LUNES)
+    assert {p.nombre: p.importe for p in i.reparto}["Alquiler del contador"] == D("1.00")
+    assert sum(p.importe for p in i.reparto) == i.total
+
+
+def test_el_perfil_de_un_dia_tipo_da_el_kwh_medio_por_hora_de_laborables_y_de_fines_de_semana():
+    i = informe_viernes_sabado()
+    assert i.perfil_laborable == (D(1),) * 24 and i.perfil_finde == (D(2),) * 24
+    assert informe().perfil_finde == (None,) * 24  # un lunes: no hay fin de semana

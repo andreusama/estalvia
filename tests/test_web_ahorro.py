@@ -68,7 +68,7 @@ def test_el_informe_responde_cuanto_gasto_en_que_y_como_pagar_menos_sin_pedir_na
 
 
 @override_settings(**CONFIG)
-def test_el_mapa_de_calor_y_las_franjas_son_visibles_sin_scripts_en_linea():
+def test_el_mapa_de_calor_y_los_periodos_son_visibles_sin_scripts_en_linea():
     html = sesion().get("/ahorro/").content.decode()
     assert 'id="mapa-calor"' in html and "Lunes" in html and re.search(r'class="i9"', html)
     assert "Horas caras" in html and "10-14 h y 18-22 h" in html and "Horas baratas" in html
@@ -97,11 +97,11 @@ def test_el_aviso_obligatorio_del_tdd_esta_en_el_informe():
 @override_settings(**CONFIG)
 def test_los_periodos_p1_p2_p3_solo_aparecen_como_detalle_explicado():
     html = sesion().get("/ahorro/").content.decode()
-    principal = re.sub(r"<details.*?</details>|<[^>]*class=\"detalle\"[^>]*>.*?</[a-z]+>", " ", html, flags=re.S)
+    principal = re.sub(r"<details.*?</details>", " ", html, flags=re.S)
     principal = re.sub(r"<script.*?</script>", " ", principal, flags=re.S)
     principal = re.sub(r"<[^>]+>", " ", principal)
     assert not re.search(r"\bP[1-6]\b", principal)
-    assert "<details" in html and "Qué son P1, P2 y P3" in html
+    assert "<details" in html and "P1, P2, P3" in html
 
 
 @override_settings(**CONFIG)

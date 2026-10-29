@@ -22,14 +22,15 @@ from estalvia.ingestion.hourly import Ingesta
 CENT = Decimal("0.01")
 DECIMO = Decimal("0.1")
 
-# Nombres llanos de las franjas. Los periodos P1-P3 siguen apareciendo como detalle, con su explicación.
-FRANJAS_2_0TD = {"P1": ("cara", "Horas caras"), "P2": ("normal", "Horas normales"), "P3": ("barata", "Horas baratas")}
+# Nombres llanos de los periodos tarifarios. P1-P3 siguen apareciendo como detalle, con su explicación.
+NOMBRES_2_0TD = {"P1": ("cara", "Horas caras"), "P2": ("normal", "Horas normales"), "P3": ("barata", "Horas baratas")}
 
 # Líneas del motor -> grupo del reparto (nombre, explicación). El orden es el de la pantalla.
 GRUPOS = (
     ("Potencia contratada", "Lo pagas por tener la potencia disponible, consumas o no."),
     ("Energía consumida", "Lo que cuesta la electricidad que gastas, kWh a kWh."),
-    ("Otros costes fijos", "Bono social y alquiler del contador: importes fijos que no dependen de lo que consumes."),
+    ("Bono social", "Cargo fijo con el que se financia el bono social, que no depende de lo que consumes."),
+    ("Alquiler del contador", "Lo que cuesta alquilar el equipo de medida, consumas o no."),
     ("Impuestos", "Impuesto especial sobre la electricidad e IVA, que se aplican sobre lo anterior."),
 )
 
@@ -39,8 +40,10 @@ def _grupo(concepto: str) -> str:
         return "Potencia contratada"
     if concepto.startswith("energia"):
         return "Energía consumida"
-    if concepto in ("bono social", "alquiler equipos"):
-        return "Otros costes fijos"
+    if concepto == "bono social":
+        return "Bono social"
+    if concepto == "alquiler equipos":
+        return "Alquiler del contador"
     return "Impuestos"
 
 
@@ -53,8 +56,8 @@ class Parte:
 
 
 @dataclass(frozen=True)
-class Franja:
-    periodo: str
+class PeriodoTarifario:
+    codigo: str  # P1, P2...
     nombre: str
     nivel: str  # cara | normal | barata
     horario: str  # laborables; fines de semana y festivos: ver la explicación
@@ -115,8 +118,8 @@ class Hallazgo:
     """Mover consumo de un periodo caro a uno más barato. El 100 % es un techo teórico, no una promesa."""
     origen: str
     destino: str
-    origen_franja: Franja
-    destino_franja: Franja
+    origen_periodo: PeriodoTarifario
+    destino_periodo: PeriodoTarifario
     kwh_origen: Decimal
     kwh_movidos: dict[int, Decimal]
     ahorro: dict[int, Decimal]
@@ -134,8 +137,10 @@ class Informe:
     total: Decimal
     periodo: Periodo
     reparto: tuple[Parte, ...]
-    franjas: tuple[Franja, ...]
+    periodos_tarifarios: tuple[PeriodoTarifario, ...]
     mapa: tuple[FilaMapa, ...]
+    perfil_laborable: tuple[Decimal | None, ...]  # kWh medios por hora local de un día laborable
+    perfil_finde: tuple[Decimal | None, ...]  # ídem, fines de semana y festivos
     laborables: TipoDia
     finde: TipoDia
     fondo: Fondo
@@ -172,18 +177,18 @@ def _horario(calendario: Calendario, tarifa: str, periodo: Periodo, p: str) -> s
     return " y ".join([", ".join(textos[:-1]), textos[-1]]) if len(textos) > 1 else textos[0]
 
 
-def _franjas(site: SiteParams, kwh: dict[str, Decimal], precios: PrecioContrato, calendario: Calendario,
-             periodo: Periodo) -> tuple[Franja, ...]:
+def _periodos_tarifarios(site: SiteParams, kwh: dict[str, Decimal], precios: PrecioContrato, calendario: Calendario,
+             periodo: Periodo) -> tuple[PeriodoTarifario, ...]:
     total = sum(kwh.values(), Decimal(0)) or Decimal(1)
-    franjas = []
+    periodos = []
     for p in PERIODOS_ENERGIA[site.tarifa]:  # también los que no se usan: 0 kWh
-        nivel, nombre = FRANJAS_2_0TD.get(p, ("normal", f"Periodo {p}")) if site.tarifa == "2.0TD" \
+        nivel, nombre = NOMBRES_2_0TD.get(p, ("normal", f"Periodo {p}")) if site.tarifa == "2.0TD" \
             else ("normal", f"Periodo {p}")
         consumido, precio = kwh.get(p, Decimal(0)), precios.energia_eur_kwh[p]
-        franjas.append(Franja(p, nombre, nivel, _horario(calendario, site.tarifa, periodo, p), consumido,
+        periodos.append(PeriodoTarifario(p, nombre, nivel, _horario(calendario, site.tarifa, periodo, p), consumido,
                               (consumido / total * 100).quantize(DECIMO, ROUND_HALF_UP), precio,
                               (consumido * precio).quantize(CENT, ROUND_HALF_UP)))
-    return tuple(franjas)
+    return tuple(periodos)
 
 
 class Hora(NamedTuple):
@@ -216,6 +221,15 @@ def _mapa(horas) -> tuple[FilaMapa, ...]:
             return Celda(None, 0)
         return Celda(medias[k], int(medias[k] / maximo * NIVELES_MAPA) if maximo else 0)
     return tuple(FilaMapa(nombre, tuple(celda((i, h)) for h in range(24))) for i, nombre in enumerate(DIAS_SEMANA))
+
+
+def _perfil(horas: list[Hora], calendario: Calendario, festivo: bool) -> tuple[Decimal | None, ...]:
+    sumas, cuentas = defaultdict(Decimal), defaultdict(int)
+    for h in horas:
+        if (calendario.tipo_dia(h.dia) == "D") == festivo:
+            sumas[h.hora] += h.kwh
+            cuentas[h.hora] += 1
+    return tuple(sumas[h] / cuentas[h] if cuentas[h] else None for h in range(24))
 
 
 def _tipo_dia(horas, calendario: Calendario, festivo: bool) -> TipoDia:
@@ -254,23 +268,24 @@ def construir_informe(site: SiteParams, ingesta: Ingesta, calendario: Calendario
     kwh = consumo_por_periodo(site, ingesta, calendario, periodo)
     horas = _horas_del_periodo(site, ingesta, calendario, precios, periodo)
     dias_caros, horas_caras = _dias_y_horas_caros(horas)
-    franjas = _franjas(site, kwh, precios, calendario, periodo)
-    return Informe(base.total, periodo, _reparto(base.lineas, base.total), franjas, _mapa(horas),
+    periodos = _periodos_tarifarios(site, kwh, precios, calendario, periodo)
+    return Informe(base.total, periodo, _reparto(base.lineas, base.total), periodos,
+                   _mapa(horas), _perfil(horas, calendario, False), _perfil(horas, calendario, True),
                    _tipo_dia(horas, calendario, False), _tipo_dia(horas, calendario, True),
                    _fondo(horas), dias_caros, horas_caras,
-                   _hallazgos(site, ingesta, calendario, reglas, precios, periodo, kwh, franjas))
+                   _hallazgos(site, ingesta, calendario, reglas, precios, periodo, kwh, periodos))
 
 
 def _hallazgos(site: SiteParams, ingesta: Ingesta, calendario: Calendario, reglas: RuleSet,
                precios: PrecioContrato, periodo: Periodo, kwh: dict[str, Decimal],
-               franjas: tuple[Franja, ...]) -> tuple[Hallazgo, ...]:
+               periodos: tuple[PeriodoTarifario, ...]) -> tuple[Hallazgo, ...]:
     """Por cada periodo de origen, su mejor destino si ahorra algo. Se evalúa con todo lo consumido en el origen:
     nunca se mueve más de lo consumido (lo garantiza `evaluar_habito`)."""
     mejor = {}
     for c in candidatos(site, ingesta, calendario, reglas, precios, periodo):  # del que más ahorra al que menos
         if c.ahorro_por_kwh > 0:
             mejor.setdefault(c.origen, c)
-    por_periodo = {f.periodo: f for f in franjas}
+    por_periodo = {f.codigo: f for f in periodos}
     hallazgos = []
     for origen, c in mejor.items():
         ev = evaluar_habito(site, ingesta, calendario, reglas, precios, periodo, Habito(origen, c.destino, kwh[origen]))

@@ -28,15 +28,16 @@ input, button { font: inherit; padding: .4rem .6rem; }
 .muestra { flex: none; width: 1rem; height: 1rem; border-radius: 3px; margin-top: .2rem; background: var(--suave); }
 .g-potencia-contratada .muestra { background: #1a5fb4; }
 .g-energia-consumida .muestra { background: #e5a50a; }
-.g-otros-costes-fijos .muestra { background: #613583; }
+.g-bono-social .muestra { background: #a51d6a; }
+.g-alquiler-del-contador .muestra { background: #613583; }
 .g-impuestos .muestra { background: #5e5c64; }
-.franjas { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem; margin: 1rem 0; }
-.franja, .tarjeta, .hallazgo { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px; padding: 1rem; }
-.franja { border-top: 6px solid var(--suave); }
+.periodos { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem; margin: 1rem 0; }
+.periodo, .tarjeta, .hallazgo { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px; padding: 1rem; }
+.periodo { border-top: 6px solid var(--suave); }
 .nivel-cara { border-top-color: var(--cara); }
 .nivel-normal { border-top-color: var(--normal); }
 .nivel-barata { border-top-color: var(--barata); }
-.franja h3, .tarjeta h3, .hallazgo h3 { margin: 0 0 .25rem; font-size: 1.1rem; }
+.periodo h3, .tarjeta h3, .hallazgo h3 { margin: 0 0 .25rem; font-size: 1.1rem; }
 .detalle { color: var(--suave); font-weight: 400; font-size: .85em; }
 .cifra-media { font-size: 1.8rem; font-weight: 700; margin: .25rem 0; }
 .destacada { border-left: 6px solid var(--acento); }

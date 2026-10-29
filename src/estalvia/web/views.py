@@ -129,11 +129,13 @@ def _cargar_reglas():
 
 def _datos_graficos(informe) -> dict:
     """Solo para dibujar (los importes ya los calculó el motor): reparto del gasto y coste de energía por franja."""
-    return {"reparto": {"nombres": [p.nombre for p in informe.reparto],
+    return {"perfil": {"laborable": [None if k is None else float(k) for k in informe.perfil_laborable],
+                       "finde": [None if k is None else float(k) for k in informe.perfil_finde]},
+            "reparto": {"nombres": [p.nombre for p in informe.reparto],
                         "importes": [float(p.importe) for p in informe.reparto]},
-            "franjas": {"nombres": [f.nombre for f in informe.franjas],
-                        "niveles": [f.nivel for f in informe.franjas],
-                        "costes": [float(f.coste_energia) for f in informe.franjas]}}
+            "periodos": {"nombres": [f.nombre for f in informe.periodos_tarifarios],
+                        "niveles": [f.nivel for f in informe.periodos_tarifarios],
+                        "costes": [float(f.coste_energia) for f in informe.periodos_tarifarios]}}
 
 
 def ahorro(request):
