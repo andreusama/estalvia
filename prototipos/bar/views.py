@@ -34,7 +34,7 @@ def necesita_bd(vista):
     @wraps(vista)
     def envuelta(request, *a, **kw):
         if not settings.DATABASES:
-            return render(request, "bar/sin_base_de_datos.html", status=503)
+            return render(request, "bar/sin_base_de_datos.html", {"motivo": settings.DATABASE_ERROR}, status=503)
         return vista(request, *a, **kw)
 
     return envuelta

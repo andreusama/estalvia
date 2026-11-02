@@ -141,3 +141,18 @@ def test_el_archivo_original_solo_se_sirve_con_sesion(web, client):
     d = Documento.objects.get()
     assert web.get(f"/bar/documentos/{d.pk}/archivo/").content == PNG
     assert client.get(f"/bar/documentos/{d.pk}/archivo/", HTTP_HOST="localhost").status_code == 302
+
+
+def test_database_url_ilegible_no_rompe_los_ajustes_y_se_explica(monkeypatch):
+    """Con corchetes en la contraseña la carga de ajustes lanzaba ValueError y Vercel no encontraba la aplicación."""
+    import importlib
+
+    from plataforma import settings
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://postgres.abc:[clave]@aws-0-eu.pooler.supabase.com:5432/postgres")
+    try:
+        recargado = importlib.reload(settings)
+        assert recargado.DATABASES == {} and "corchetes" in recargado.DATABASE_ERROR
+    finally:
+        monkeypatch.delenv("DATABASE_URL")
+        importlib.reload(settings)

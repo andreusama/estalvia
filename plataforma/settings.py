@@ -73,28 +73,44 @@ TEMPLATES = [
 ]
 
 
+DATABASE_ERROR = ""  # si DATABASE_URL no se puede leer, el Bar lo dice en pantalla en vez de tumbar el despliegue
+
+
 def _base_de_datos() -> dict:
-    """PostgreSQL con DATABASE_URL (Vercel, Neon); SQLite en local; en Vercel sin URL, sin base de datos."""
-    url = os.environ.get("DATABASE_URL", "")
+    """PostgreSQL con DATABASE_URL (Vercel, Supabase, Neon); SQLite en local; en Vercel sin URL, sin base de datos.
+
+    Una URL ilegible nunca debe romper la carga de los ajustes: Vercel los ejecuta para encontrar la aplicación.
+    """
+    global DATABASE_ERROR
+    url = os.environ.get("DATABASE_URL", "").strip().strip("'\"")
     if url:
-        u = urllib.parse.urlparse(url)
-        opciones = {
-            k: v for k, v in urllib.parse.parse_qsl(u.query) if k in ("sslmode", "channel_binding", "connect_timeout")
-        }
-        opciones["prepare_threshold"] = None  # los pooladores (Supabase, Neon) no admiten consultas preparadas
-        return {
-            "default": {
-                "ENGINE": "django.db.backends.postgresql",
-                "NAME": u.path.lstrip("/"),
-                "USER": urllib.parse.unquote(u.username or ""),
-                "PASSWORD": urllib.parse.unquote(u.password or ""),
-                "HOST": u.hostname,
-                "PORT": u.port or 5432,
-                "OPTIONS": opciones,
-                "CONN_MAX_AGE": 0,
-                "DISABLE_SERVER_SIDE_CURSORS": True,
+        try:
+            u = urllib.parse.urlparse(url)
+            opciones = {
+                k: v
+                for k, v in urllib.parse.parse_qsl(u.query)
+                if k in ("sslmode", "channel_binding", "connect_timeout")
             }
-        }
+            opciones["prepare_threshold"] = None  # los pooladores (Supabase, Neon) no admiten consultas preparadas
+            return {
+                "default": {
+                    "ENGINE": "django.db.backends.postgresql",
+                    "NAME": u.path.lstrip("/"),
+                    "USER": urllib.parse.unquote(u.username or ""),
+                    "PASSWORD": urllib.parse.unquote(u.password or ""),
+                    "HOST": u.hostname,
+                    "PORT": u.port or 5432,
+                    "OPTIONS": opciones,
+                    "CONN_MAX_AGE": 0,
+                    "DISABLE_SERVER_SIDE_CURSORS": True,
+                }
+            }
+        except ValueError:
+            DATABASE_ERROR = (
+                "DATABASE_URL no tiene un formato válido. Revisa que no queden corchetes [ ] alrededor de la "
+                "contraseña y que los símbolos @ : / de la contraseña estén escritos como %40 %3A %2F."
+            )
+            return {}
     if EN_VERCEL:
         return {}
     return {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
