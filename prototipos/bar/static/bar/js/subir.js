@@ -1,17 +1,17 @@
 // Sube los archivos de uno en uno (Vercel limita el cuerpo a 4,5 MB) y reduce las fotos antes de enviarlas.
+// Se envían en cuanto se elige o se hace la foto: galería, cámara y PDF son tres entradas del mismo formulario.
 (function () {
   var form = document.getElementById('form-subir');
-  if (!form) return;
-  var input = document.getElementById('archivo');
+  if (!form || !window.fetch) return;
+  var inputs = form.querySelectorAll('input[type=file]');
   var lista = document.getElementById('estado-subida');
-  var boton = form.querySelector('button[type=submit]');
   var maxBytes = (parseInt(form.dataset.maxMb, 10) || 4) * 1024 * 1024;
   var LADO = 2200, CALIDAD = 0.88;
+  var ocupado = false;
 
-  function linea(texto, ok) {
+  function linea(texto) {
     var li = document.createElement('li');
     li.textContent = texto;
-    if (ok === false) li.className = 'doubt';
     lista.appendChild(li);
     return li;
   }
@@ -31,18 +31,15 @@
     }).catch(function () { return archivo; });
   }
 
-  form.addEventListener('submit', function (e) {
-    var archivos = Array.prototype.slice.call(input.files);
-    if (!archivos.length || !window.fetch) return; // sin JS moderno, envío normal
-    e.preventDefault();
-    boton.disabled = true;
+  function subir(archivos) {
+    ocupado = true;
     lista.innerHTML = '';
     var token = form.querySelector('[name=csrfmiddlewaretoken]').value;
     var urls = [], fallos = 0;
 
     archivos.reduce(function (previa, archivo, i) {
       return previa.then(function () {
-        var li = linea('Subiendo ' + (i + 1) + ' de ' + archivos.length + ': ' + archivo.name + '…');
+        var li = linea('Subiendo ' + (i + 1) + ' de ' + archivos.length + '…');
         return reducir(archivo).then(function (blob) {
           if (blob.size > maxBytes) throw new Error('pesa demasiado, incluso reducido');
           var fd = new FormData();
@@ -54,7 +51,7 @@
           return r.json().catch(function () { throw new Error('el servidor no pudo recibirlo (' + r.status + ')'); });
         }).then(function (j) {
           if (!j.ok) throw new Error(j.error);
-          li.textContent = '= ' + archivo.name + (j.nuevo ? '' : ' (ya estaba subido)');
+          li.textContent = '= ' + (j.nuevo ? 'Subido' : 'Ya estaba subido');
           urls.push(j.url);
         }).catch(function (err) {
           fallos++;
@@ -63,11 +60,16 @@
         });
       });
     }, Promise.resolve()).then(function () {
-      if (!fallos) {
-        window.location.href = urls.length === 1 ? urls[0] : form.dataset.inicio || window.location.pathname.replace(/subir\/$/, '');
-      } else {
-        boton.disabled = false;
-      }
+      ocupado = false;
+      inputs.forEach(function (i) { i.value = ''; });
+      if (!fallos) window.location.href = urls.length === 1 ? urls[0] : form.dataset.inicio;
+    });
+  }
+
+  inputs.forEach(function (input) {
+    input.addEventListener('change', function () {
+      if (ocupado || !input.files.length) return;
+      subir(Array.prototype.slice.call(input.files));
     });
   });
 })();

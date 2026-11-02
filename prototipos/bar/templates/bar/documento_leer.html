@@ -1,4 +1,6 @@
-{% extends "plataforma/base.html" %}{% load i18n static %}
+{% extends "bar/base.html" %}{% load i18n static %}
+{% block mainclass %}app__main--libre{% endblock %}
+{% block tabs %}{% endblock %}
 {% block title %}{{ doc.nombre_archivo }} · Estalvia{% endblock %}
 {% block content %}
 <p><a class="muted" href="{% url 'bar:inicio' %}">← {% translate "Todos los documentos" %}</a></p>

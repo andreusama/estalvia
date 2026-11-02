@@ -1,0 +1,30 @@
+{% load i18n bar_extras %}
+<div class="detalle is-{{ g.estado }}" data-id="{{ g.id }}" data-estado="{{ g.estado }}">
+  <div class="detalle__cab">
+    <h2 id="hoja-titulo">{{ g.proveedor }}</h2>
+    {% if en_hoja %}<button class="icono" type="button" data-cerrar aria-label="{% translate 'Cerrar' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>{% endif %}
+  </div>
+  <p class="muted">{{ g.fechas }}</p>
+  <span class="pill">{{ g.etiqueta_detalle }}</span>
+  <div class="detalle__bloque">
+    <div class="cmp__cols eyebrow">
+      <span>{% translate "Albarán" %} {% if g.albaran %}{{ g.albaran.numero }}{% endif %}</span>
+      <span>{% translate "Factura" %} {% if g.factura %}{{ g.factura.numero }}{% endif %}</span>
+    </div>
+    {% for p in g.pares %}{% with l=p.albaran|default:p.factura %}
+    <div class="cmp__linea{% if p.difiere and g.estado == 'diff' %} is-diff{% endif %}">
+      <span class="cmp__desc">{{ l.descripcion }}</span>
+      <div class="cmp__vals">
+        <div>{% if p.albaran %}{% if p.albaran.calculo %}<span class="cmp__calc">{{ p.albaran.calculo }}</span>{% endif %}<span class="cmp__imp">{{ p.albaran.importe|eur }}</span>{% else %}<span class="cmp__calc">{% translate "Sin albarán" %}</span>{% endif %}</div>
+        <div>{% if p.factura %}{% if p.factura.calculo %}<span class="cmp__calc">{{ p.factura.calculo }}</span>{% endif %}<span class="cmp__imp{% if p.difiere and g.estado == 'diff' %} is-different{% endif %}">{{ p.factura.importe|eur }}</span>{% else %}<span class="cmp__calc">{% translate "Factura pendiente" %}</span>{% endif %}</div>
+      </div>
+    </div>
+    {% endwith %}{% endfor %}
+    <div class="cmp__total">
+      <span class="cmp__imp">{% if g.albaran %}{{ g.albaran.total|eur }}{% else %}—{% endif %}</span>
+      <span class="eyebrow">{% translate "Total" %}</span>
+      <span class="cmp__imp{% if g.estado == 'diff' %} is-different{% endif %}">{% if g.factura %}{{ g.factura.total|eur }}{% else %}—{% endif %}</span>
+    </div>
+  </div>
+  {% if g.estado == "diff" %}<p class="nota-roja">{{ g.explicacion }}</p>{% else %}<p class="muted">{{ g.nota }}</p>{% endif %}
+</div>

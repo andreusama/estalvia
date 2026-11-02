@@ -1,42 +1,53 @@
-{% extends "plataforma/base.html" %}{% load i18n bar_extras %}
-{% block title %}{% translate "Tus documentos" %} · Estalvia{% endblock %}
+{% extends "bar/base.html" %}{% load i18n bar_extras %}
+{% block title %}{% translate "Resumen" %} · Estalvia{% endblock %}
 {% block content %}
-<header class="section">
-  <div class="section__head" style="margin-bottom:0">
-    <div>
-      <p class="eyebrow">{% translate "Bar" %}</p>
-      <h1 style="margin-top:var(--s-near)">{% translate "Tus documentos" %}</h1>
-      <p class="muted" style="margin-top:var(--s-near)">{% translate "Sube una foto de cada albarán o factura. La IA los lee y tú compruebas que están bien." %}</p>
-    </div>
-    <a class="btn btn--primary" href="{% url 'bar:subir' %}">{% translate "Subir documentos" %}</a>
-  </div>
+<header class="appbar">
+  <div><p class="eyebrow">{{ hoy|date:"F Y" }}</p><h1>{% translate "Resumen" %}</h1></div>
+  <form method="post" action="{% url 'salir' %}">{% csrf_token %}<button class="btn btn--secondary" type="submit">{% translate "Salir" %}</button></form>
 </header>
+{% if confirmado %}<p class="msg msg--ok" role="status" data-aviso="{% translate 'Documento confirmado.' %}">= {% translate "Documento confirmado." %}</p>{% endif %}
 
-{% if not total %}
-<section class="section">
-  <div class="group"><h2 class="group__name">{% translate "Todavía no has subido nada" %}</h2>
-  <p class="group__note">{% translate "Cuando subas el primer albarán o factura aparecerá aquí, con su estado." %}</p></div>
-</section>
-{% endif %}
-
-{% for s in secciones %}
-<section class="section" aria-labelledby="sec-{{ s.estado }}">
-  <div class="section__head"><div>
-    <p class="eyebrow">{{ s.ayuda }}</p>
-    <h2 id="sec-{{ s.estado }}" style="margin-top:var(--s-near)">{{ s.titulo }} · <span class="num">{{ s.docs|length }}</span></h2>
-  </div></div>
-  <div class="grid">
-    {% for d in s.docs %}
-    <a class="group group--link is-{{ d.estilo }}" href="{% url 'bar:documento' d.pk %}">
-      <div class="group__head"><span class="group__name">{{ d.proveedor_nombre|default:d.nombre_archivo }}</span><span class="pill">{{ d.get_estado_display }}</span></div>
-      <div class="doc">
-        <span class="doc__kind">{% if d.estado == "procesado" or d.estado == "revisado" %}{{ d.get_tipo_display }} {{ d.numero }}{% else %}{{ d.nombre_archivo }}{% endif %}</span>
-        <span class="doc__amount">{% if d.total is not None %}{{ d.total|eur }}{% else %}—{% endif %}</span>
-      </div>
-      <p class="group__note">{% if d.fecha %}{{ d.fecha|date:"d/m/Y" }}{% else %}{% translate "Sin fecha" %}{% endif %}</p>
+<section class="section" aria-labelledby="t-docs">
+  <div class="cabecera-lista"><h2 id="t-docs">{% translate "Tus documentos" %}</h2>{% if docs %}<span class="muted num">{{ docs|length }}</span>{% endif %}</div>
+  {% if docs %}
+  <div class="lista lista--junta">
+    {% for d in docs %}
+    <a class="fila is-{{ d.estilo }}" href="{{ d.url }}">
+      <span class="fila__main">
+        <span class="fila__nombre">{{ d.proveedor_nombre|default:d.nombre_archivo }}</span>
+        <span class="fila__sub">{% if d.estado == "procesado" or d.estado == "revisado" %}{{ d.get_tipo_display }} <span class="mono">{{ d.numero }}</span>{% if d.fecha %} · {{ d.fecha|date:"j M Y" }}{% endif %}{% else %}{% translate "Sin leer todavía" %}{% endif %}</span>
+      </span>
+      <span class="fila__lado">
+        <span class="fila__importe">{% if d.total is not None %}{{ d.total|eur }}{% else %}—{% endif %}</span>
+        <span class="pill">{{ d.get_estado_display }}</span>
+      </span>
     </a>
     {% endfor %}
   </div>
+  {% else %}
+  <div class="vacio"><p class="muted">{% translate "Todavía no has subido nada. Haz una foto de un albarán o una factura y aparecerá aquí." %}</p><a class="btn btn--primary" href="{% url 'bar:subir' %}">{% translate "Subir documento" %}</a></div>
+  {% endif %}
 </section>
-{% endfor %}
+
+<section class="section" aria-labelledby="t-grupos">
+  <p class="demo-flag">{% translate "Datos de ejemplo: todavía no se emparejan tus documentos." %}</p>
+  <div class="summary" style="margin-top:var(--s-group)">
+    <div class="summary__bar" role="img" aria-label="{{ cifras.ok }} {% translate 'coinciden' %}, {{ cifras.diff }} {% translate 'con diferencias' %}, {{ cifras.wait }} {% translate 'pendientes' %}">
+      {% if cifras.ok %}<span class="is-ok" style="flex:{{ cifras.ok }}"></span>{% endif %}
+      {% if cifras.diff %}<span class="is-diff" style="flex:{{ cifras.diff }}"></span>{% endif %}
+      {% if cifras.wait %}<span class="is-wait" style="flex:{{ cifras.wait }}"></span>{% endif %}
+    </div>
+    <div class="summary__figures">
+      <div class="figure is-ok"><span class="figure__num">{{ cifras.ok }}</span><span class="figure__label">{% translate "Coinciden" %}</span></div>
+      <div class="figure is-diff"><span class="figure__num">{{ cifras.diff }}</span><span class="figure__label">{% translate "Diferencias" %}</span></div>
+      <div class="figure is-wait"><span class="figure__num">{{ cifras.wait }}</span><span class="figure__label">{% translate "Pendientes" %}</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="t-grupos">
+  <div class="cabecera-lista"><h2 id="t-grupos">{% translate "Grupos" %}</h2><span class="muted">{% translate "Por urgencia" %}</span></div>
+  <div class="lista">{% for g in grupos %}{% include "bar/_grupo_card.html" %}{% endfor %}</div>
+</section>
+{% include "bar/_hoja.html" %}
 {% endblock %}

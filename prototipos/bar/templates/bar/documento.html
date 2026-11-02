@@ -1,4 +1,5 @@
-{% extends "plataforma/base.html" %}{% load i18n static bar_extras %}
+{% extends "bar/base.html" %}{% load i18n static bar_extras %}
+{% block mainclass %}app__main--ancho{% endblock %}
 {% block title %}{{ doc.proveedor_nombre|default:doc.nombre_archivo }} · Estalvia{% endblock %}
 {% block content %}
 <p><a class="muted" href="{% url 'bar:inicio' %}">← {% translate "Todos los documentos" %}</a></p>

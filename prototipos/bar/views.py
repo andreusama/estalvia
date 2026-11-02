@@ -1,15 +1,15 @@
-from collections import Counter
 from functools import wraps
 from urllib.parse import quote
 
 from django.conf import settings
 from django.db import transaction
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from . import servicios
+from . import ejemplo, servicios
 from .comprobaciones import comprobar
 from .forms import DocumentoForm, IvaFormSet, LineaFormSet, ReferenciaFormSet
 from .models import Documento
@@ -44,20 +44,71 @@ def _ajax(request) -> bool:
     return request.headers.get("X-Requested-With") == "fetch"
 
 
+def _url_documento(d) -> str:
+    """Un documento recién leído se abre en «Confirmar lectura»; los demás, en su ficha completa."""
+    nombre = "bar:confirmar" if d.estado == Documento.Estado.PROCESADO else "bar:documento"
+    return reverse(nombre, args=[d.pk])
+
+
 @necesita_bd
 def inicio(request):
-    docs = Documento.objects.defer("archivo", "respuesta_ia")
-    por_estado: dict[str, list] = {}
+    """Resumen: los documentos de verdad arriba y, debajo, los grupos de ejemplo (la conciliación aún no existe)."""
+    docs = list(Documento.objects.defer("archivo", "respuesta_ia"))
     for d in docs:
         d.estilo = ESTILO_ESTADO[d.estado]
-        por_estado.setdefault(d.estado, []).append(d)
-    secciones = [
-        {"estado": e, "titulo": t, "ayuda": a, "docs": por_estado[e], "estilo": ESTILO_ESTADO[e]}
-        for e, t, a in ORDEN_SECCIONES
-        if e in por_estado
-    ]
-    n = Counter({e: len(v) for e, v in por_estado.items()})
-    return render(request, "bar/inicio.html", {"secciones": secciones, "n": n, "total": sum(n.values())})
+        d.url = _url_documento(d)
+    hoy = timezone.localdate()
+    lista = ejemplo.grupos(hoy)
+    cifras = ejemplo.resumen(lista)
+    return render(
+        request,
+        "bar/inicio.html",
+        {
+            "docs": docs,
+            "grupos": lista,
+            "cifras": cifras,
+            "total_grupos": len(lista),
+            "hoy": hoy,
+            "confirmado": "confirmado" in request.GET,
+        },
+    )
+
+
+@necesita_bd
+def revisar(request):
+    """Revisar: solo los grupos con diferencia, de mayor a menor importe (grupos de ejemplo)."""
+    lista = ejemplo.con_diferencias(ejemplo.grupos(timezone.localdate()))
+    cifras = ejemplo.resumen(lista)
+    return render(request, "bar/revisar.html", {"grupos": lista, "cifras": cifras})
+
+
+@necesita_bd
+def grupo(request, slug):
+    """Detalle de un grupo en página completa (sin JavaScript); con JavaScript se abre como hoja inferior."""
+    for g in ejemplo.grupos(timezone.localdate()):
+        if g.id == slug:
+            return render(request, "bar/grupo.html", {"g": g})
+    raise Http404
+
+
+@necesita_bd
+def confirmar(request, pk):
+    """Confirmar lectura: lo que ha leído la IA, para darlo por bueno con un toque si todo es legible y cuadra.
+
+    Si algo es dudoso o no cuadra, no se ofrece confirmar aquí: hay que revisarlo en la ficha completa.
+    """
+    doc = get_object_or_404(Documento.objects.defer("archivo", "respuesta_ia"), pk=pk)
+    if doc.estado != Documento.Estado.PROCESADO:
+        return redirect("bar:documento", pk=doc.pk)
+    dudosos, _ = _dudosos(doc)
+    fallos = comprobar(doc)
+    limpio = not dudosos and not fallos and not doc.campos_dudosos
+    if request.method == "POST":
+        if not limpio:
+            return redirect("bar:documento", pk=doc.pk)
+        servicios.marcar_revisado(doc)
+        return redirect(reverse("bar:inicio") + "?confirmado=1")
+    return render(request, "bar/confirmar.html", {"doc": doc, "dudosos": dudosos, "fallos": fallos, "limpio": limpio})
 
 
 @necesita_bd
@@ -96,7 +147,7 @@ def subir(request):
 def leer(request, pk):
     doc = get_object_or_404(Documento, pk=pk)
     servicios.leer(doc)
-    destino = reverse("bar:documento", args=[doc.pk])
+    destino = _url_documento(doc)
     if _ajax(request):
         return JsonResponse({"estado": doc.estado, "url": destino})
     return redirect(destino)
