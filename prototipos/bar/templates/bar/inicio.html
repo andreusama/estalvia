@@ -1,0 +1,48 @@
+{% extends "plataforma/base.html" %}{% load i18n %}
+{% block title %}{% translate "Albaranes y facturas" %} · Estalvia{% endblock %}
+{% block content %}
+<header class="section">
+  <p class="eyebrow">{% translate "Bar" %}</p>
+  <h1 style="margin-top:var(--s-near)">{% translate "Albaranes y facturas" %}</h1>
+  <p class="muted" style="margin-top:var(--s-near)">{% translate "Cada albarán, junto a la factura que lo cobra. Solo te pedimos algo cuando no cuadra." %}</p>
+  {% if es_ejemplo %}<p class="demo-flag" style="margin-top:var(--s-group)">{% translate "Datos de ejemplo, no son reales" %}</p>{% endif %}
+</header>
+
+<section class="section" aria-labelledby="resumen">
+  <h2 id="resumen" class="visually-hidden">{% translate "Resumen" %}</h2>
+  <div class="summary__bar" role="img" aria-label="{{ etiqueta_barra }}">
+    {% if n.ok %}<span class="is-ok" style="flex:{{ n.ok }}"></span>{% endif %}
+    {% if n.diff %}<span class="is-diff" style="flex:{{ n.diff }}"></span>{% endif %}
+    {% if n.wait %}<span class="is-wait" style="flex:{{ n.wait }}"></span>{% endif %}
+  </div>
+  <div class="summary__figures">
+    <div class="figure is-ok"><span class="figure__num">{{ n.ok }}</span><span class="figure__label">{% translate "Coinciden" %}</span></div>
+    <div class="figure is-diff"><span class="figure__num">{{ n.diff }}</span><span class="figure__label">{% translate "Con diferencias" %}</span></div>
+    <div class="figure is-wait"><span class="figure__num">{{ n.wait }}</span><span class="figure__label">{% translate "Pendientes" %}</span></div>
+  </div>
+</section>
+
+{% for s in secciones %}
+<section class="section" aria-labelledby="sec-{{ s.estado }}">
+  <div class="section__head"><div><p class="eyebrow">{{ s.sobre }}</p><h2 id="sec-{{ s.estado }}" style="margin-top:var(--s-near)">{{ s.titulo }}</h2></div></div>
+  <div class="grid">
+    {% for g in s.grupos %}
+    <article class="group is-{{ g.estado }}">
+      <div class="group__head"><h3 class="group__name">{{ g.proveedor }}</h3>
+        <span class="pill">{% if g.estado == "ok" %}{% translate "Coincide" %}{% elif g.estado == "diff" %}{% translate "Diferencia" %}{% else %}{% translate "Pendiente" %}{% endif %}</span></div>
+      <div class="pair">
+        <div class="doc"><span class="doc__kind">{{ g.albaran.tipo }} {{ g.albaran.numero }}</span><span class="doc__amount">{{ g.albaran.importe|floatformat:"2g" }}&nbsp;€</span></div>
+        <span class="rel" role="img" aria-label="{% if g.estado == 'ok' %}{% translate 'Coincide' %}{% elif g.estado == 'diff' %}{% translate 'No coincide' %}{% else %}{% translate 'Pendiente' %}{% endif %}">{% if g.estado == "ok" %}={% elif g.estado == "diff" %}≠{% else %}?{% endif %}</span>
+        {% if g.factura %}
+        <div class="doc"><span class="doc__kind">{{ g.factura.tipo }} {{ g.factura.numero }}</span><span class="doc__amount{% if g.estado == 'diff' %} is-different{% endif %}">{{ g.factura.importe|floatformat:"2g" }}&nbsp;€</span></div>
+        {% else %}
+        <div class="doc doc--empty"><span class="doc__kind">{% translate "Factura" %}</span><span class="doc__amount">{% translate "Todavía no ha llegado" %}</span></div>
+        {% endif %}
+      </div>
+      <p class="group__note">{{ g.nota }}</p>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% endblock %}

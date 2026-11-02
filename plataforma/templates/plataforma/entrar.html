@@ -1,0 +1,14 @@
+{% extends "plataforma/base.html" %}{% load i18n %}
+{% block title %}{% translate "Entrar" %} · Estalvia{% endblock %}
+{% block content %}
+<section class="section narrow">
+  <h1>{% translate "Entrar" %}</h1>
+  <form method="post" class="group" style="margin-top:var(--s-group)">{% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <label class="eyebrow" for="password">{% translate "Contraseña" %}</label>
+    <input class="field" id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+    {% if error %}<p class="msg" role="alert"><span aria-hidden="true">≠</span> {{ error }}</p>{% endif %}
+    <div class="group__actions"><button class="btn btn--primary" type="submit">{% translate "Entrar" %}</button></div>
+  </form>
+</section>
+{% endblock %}

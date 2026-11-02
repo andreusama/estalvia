@@ -10,3 +10,8 @@ data/private/
 *.pdf
 invoice-*.csv
 tests/golden/private/
+
+# Plataforma (Vercel)
+staticfiles/
+.env.local
+.vercel

@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTIPO Bar – maqueta (datos inventados)</title>
+<!--
+  PROTOTIPO DESCARTABLE. Pregunta: "¿cómo debe verse la herramienta para un dueño de bar poco técnico?"
+  Tres variantes con ?variant=A|B|C (o flechas ← → del teclado). Sin servidor, sin persistencia: doble clic para abrir.
+  A = Baldosas (4 números grandes)  B = Por proveedor (semáforo)  C = "Qué hacer hoy" (lista de tareas + pestañas)
+  Hoy simulado: 2 nov 2026. Todo es inventado.
+-->
+<style>
+:root{--ok:#1f9d55;--warn:#e69500;--bad:#d64545;--none:#9aa3ad;--ink:#1d2733;--bg:#f3f1ec;--card:#fff;--line:#e3e0d8;--blue:#2c5fa8}
+*{box-sizing:border-box}
+body{margin:0;background:#d9d6cf;font:18px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink)}
+#app{max-width:480px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;padding-bottom:150px}
+.banner{background:#222;color:#ffd84d;font-size:12px;text-align:center;padding:4px}
+header.top{display:flex;align-items:center;gap:10px;padding:14px 16px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+header.top h1{font-size:20px;margin:0;flex:1}
+.back{border:0;background:#eee;border-radius:12px;font-size:22px;width:44px;height:44px}
+.bell{position:relative;border:0;background:#eee;border-radius:12px;font-size:22px;width:44px;height:44px}
+.bell b{position:absolute;top:-6px;right:-6px;background:var(--bad);color:#fff;border-radius:12px;font-size:13px;padding:1px 6px}
+main{padding:16px}
+h2{font-size:19px;margin:20px 0 10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:12px;box-shadow:0 1px 2px #0001}
+.card.tap{cursor:pointer}.card.tap:active{transform:scale(.99)}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{border:0;border-radius:22px;padding:16px;text-align:left;color:#fff;min-height:150px;display:flex;flex-direction:column;justify-content:space-between;font:inherit;cursor:pointer}
+.tile .ico{font-size:30px}.tile .big{font-size:28px;font-weight:800;line-height:1.1}.tile .lbl{font-size:16px;font-weight:600}.tile small{font-size:13px;opacity:.95}
+.t-pagar{background:var(--bad)}.t-rev{background:var(--blue)}.t-av{background:var(--warn)}.t-gasto{background:#5b4b8a}
+.chip{display:inline-block;border-radius:20px;padding:2px 10px;font-size:13px;font-weight:700;color:#fff;background:var(--none)}
+.chip.ok{background:var(--ok)}.chip.warn{background:var(--warn)}.chip.bad{background:var(--bad)}.chip.prov{background:#fff;color:#8a5a00;border:1.5px dashed var(--warn)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.muted{color:#66707c;font-size:15px}
+.amount{font-weight:800;font-size:20px;white-space:nowrap}
+/* seguimiento horizontal */
+.track{display:flex;align-items:flex-start;margin:12px 0 4px}
+.step{flex:1;text-align:center;position:relative;font-size:12.5px;line-height:1.15}
+.step .dot{width:38px;height:38px;border-radius:50%;margin:0 auto 4px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:19px;background:var(--none);position:relative;z-index:1}
+.step.ok .dot{background:var(--ok)}.step.warn .dot{background:var(--warn)}.step.bad .dot{background:var(--bad)}
+.step:not(:last-child):after{content:"";position:absolute;top:18px;left:calc(50% + 22px);right:calc(-50% + 22px);height:4px;background:var(--line)}
+.step.ok:not(:last-child):after{background:var(--ok)}
+/* seguimiento vertical */
+.vstep{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.vstep:last-child{border:0}.vstep .dot{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:22px;font-weight:800;background:var(--none)}
+.vstep.ok .dot{background:var(--ok)}.vstep.warn .dot{background:var(--warn)}.vstep.bad .dot{background:var(--bad)}
+.vstep b{display:block}
+.btn{display:block;width:100%;border:0;border-radius:16px;padding:16px;font:inherit;font-weight:700;margin-top:10px;background:var(--blue);color:#fff;cursor:pointer}
+.btn.alt{background:#e8e5dd;color:var(--ink)}
+.box{border-radius:14px;padding:12px;margin:10px 0;background:#faf8f3;border-left:6px solid var(--warn)}
+.box h3{margin:0 0 6px;font-size:16px;text-transform:uppercase;letter-spacing:.03em;color:#66707c}
+.box ul{margin:0;padding-left:20px}.box li{margin:4px 0}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.pair .card{margin:0;font-size:15px;padding:10px}
+.hl{background:#fff1c9;padding:0 4px;border-radius:4px}
+.bar{height:22px;border-radius:8px;background:#5b4b8a;margin:4px 0 10px}
+.toast{background:var(--ok);color:#fff;border-radius:14px;padding:12px;margin-bottom:12px;font-weight:700}
+.tabs{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;display:grid;grid-template-columns:repeat(4,1fr);background:#fff;border-top:1px solid var(--line);z-index:6}
+.tabs button{border:0;background:none;padding:10px 0 12px;font:inherit;font-size:13px;color:#66707c;position:relative}
+.tabs button span{display:block;font-size:24px}.tabs button.on{color:var(--blue);font-weight:800}
+.tabs b{position:absolute;top:4px;left:56%;background:var(--bad);color:#fff;border-radius:10px;font-size:12px;padding:0 6px}
+.todo{display:flex;gap:12px;align-items:center}.todo .ico{font-size:34px}
+.sw{position:fixed;left:50%;transform:translateX(-50%);bottom:12px;background:#111;color:#fff;border-radius:30px;padding:6px 8px;display:flex;align-items:center;gap:8px;z-index:20;box-shadow:0 4px 14px #0006;font-size:14px}
+.sw.hasTabs{bottom:78px}
+.sw button{border:0;background:#333;color:#fff;border-radius:50%;width:36px;height:36px;font-size:18px}
+</style>
+</head>
+<body>
+<div class="banner">PROTOTIPO – datos inventados – hoy es 2 nov 2026</div>
+<div id="app"></div>
+<div id="sw" class="sw"></div>
+
+<script>
+// ---------- datos inventados ----------
+const HOY = '2 nov';
+const PROVS = {
+  cervezas:{n:'Cervezas Levante',ico:'🍺'}, frutas:{n:'Frutas Mari',ico:'🍋'},
+  gomez:{n:'Distribuciones Gómez',ico:'🥤'}, carnes:{n:'Carnes El Pastor',ico:'🥩'}
+};
+// s: ok | warn | bad | none
+const SEG = [
+ {id:'F-2231',prov:'cervezas',tipo:'Factura',total:1248.60,fecha:'28 oct',vence:'12 nov',prov_:false,pagada:false,
+  pasos:[{s:'ok',t:'Albarán recibido',d:'2 albaranes (A-8841 del 21 oct y A-8860 del 26 oct) que suman 1.248,60 €.'},
+         {s:'ok',t:'Factura llegada',d:'Llegó el 28 oct. Coincide con los albaranes, ni un céntimo de diferencia.'},
+         {s:'warn',t:'Por pagar',d:'Vence el 12 nov (dentro de 10 días).'}],avisos:['dup']},
+ {id:'F-0415',prov:'frutas',tipo:'Factura',total:312.40,fecha:'20 oct',vence:'1 nov',prov_:true,pagada:false,
+  pasos:[{s:'warn',t:'Albarán recibido',d:'Hay un albarán del 3 oct de 318,40 €. No es igual a la factura: faltan 6,00 €.'},
+         {s:'ok',t:'Factura llegada',d:'Llegó el 20 oct. (Aún sin revisar por ti.)'},
+         {s:'bad',t:'Por pagar – vencida',d:'Venció ayer, 1 nov.'}],avisos:['cerca']},
+ {id:'A-3302',prov:'carnes',tipo:'Albarán',total:220.15,fecha:'30 oct',vence:null,prov_:false,pagada:false,
+  pasos:[{s:'ok',t:'Albarán recibido',d:'Entrega del 30 oct por 220,15 €.'},
+         {s:'warn',t:'Factura llegada',d:'Todavía no ha llegado la factura. Hace 3 días de la entrega.'},
+         {s:'none',t:'Por pagar',d:'Todavía no se puede saber.'}],avisos:['sinfac']},
+ {id:'G-5520',prov:'gomez',tipo:'Factura',total:540.00,fecha:'18 oct',vence:'30 oct',prov_:false,pagada:true,
+  pasos:[{s:'ok',t:'Albarán recibido',d:'Albarán A-1190 de 540,00 €.'},
+         {s:'ok',t:'Factura llegada',d:'Coincide al céntimo.'},
+         {s:'ok',t:'Pagada',d:'Transferencia del 30 oct por 540,00 €.'}],avisos:[]}
+];
+const AVISOS = {
+ dup:{ico:'👯',tit:'Parece que la factura F-2231 está dos veces',tipo:'Posible duplicado',prov:'cervezas',seg:'F-2231',
+  pasa:'Has subido dos fotos de Cervezas Levante con el mismo número de factura, F-2231.',
+  porque:['Mismo proveedor y mismo número (F-2231).','Mismo total: 1.248,60 €.','Subidas con 1 día de diferencia (28 y 29 oct).'],
+  podria:['Fotografiaste la misma factura dos veces.','O el proveedor la mandó otra vez por correo.','Menos probable: son dos facturas distintas con el mismo número.'],
+  docs:[['Foto 1 · 28 oct','F-2231 · 1.248,60 €'],['Foto 2 · 29 oct','F-2231 · 1.248,60 €']],
+  acc:[['Son la misma: ocultar una','Hecho: una de las dos queda guardada y escondida (puedes recuperarla).'],['No, son distintas','Hecho: las dos cuentan. No volveremos a avisar de este par.']]},
+ cerca:{ico:'🔎',tit:'La factura de Frutas Mari se parece a un albarán, pero no es igual',tipo:'No cuadra',prov:'frutas',seg:'F-0415',
+  pasa:'La factura F-0415 pide 312,40 €. El albarán del 3 oct decía 318,40 €. Faltan 6,00 € (1,9 %).',
+  porque:['Mismo proveedor y fechas cercanas (13 días).','No hay ningún otro albarán sin factura de Frutas Mari.','La diferencia es pequeña pero no es cero.'],
+  podria:['La factura está mal emitida (un error del proveedor).','Hubo un descuento o devolución que no consta en el albarán.','Falta un albarán, o esta factura es de otra entrega que no has subido.'],
+  docs:[['Albarán · 3 oct','A-0377 · 318,40 €'],['Factura · 20 oct','F-0415 · 312,40 €']],
+  acc:[['Enlazarlos igualmente','Hecho: quedan enlazados y la diferencia de 6,00 € queda anotada.'],['No es ese albarán','Hecho: la factura queda sin albarán y seguimos buscando.']]},
+ sinfac:{ico:'📦',tit:'Entregaron mercancía de Carnes El Pastor y aún no hay factura',tipo:'Albarán sin factura',prov:'carnes',seg:'A-3302',
+  pasa:'El albarán A-3302 (30 oct, 220,15 €) no tiene factura.',
+  porque:['Hace 3 días de la entrega.','Con este proveedor suelen facturarte a la semana (basado en 2 compras anteriores).'],
+  podria:['La factura todavía no ha llegado.','La pagaste en efectivo al recibirla.','Hay una factura, pero no la has subido.'],
+  docs:[['Albarán · 30 oct','A-3302 · 220,15 €']],
+  acc:[['Marcar «no espero factura»','Hecho: ya no avisaremos de este albarán (se pagó en la entrega).'],['Seguir esperando','Hecho: te lo recordaremos dentro de 7 días.']]},
+ precio:{ico:'📈',tit:'Cerveza 33 cl (caja de 24) ha subido un 6,6 %',tipo:'Subida de precio',prov:'cervezas',seg:'F-2231',
+  pasa:'Antes pagabas 19,80 € por caja. Ahora 21,10 €. Son 1,30 € más por caja.',
+  porque:['Misma unidad (caja de 24) en las dos compras.','Tu límite de aviso es 5 % y esta subida es 6,6 %.'],
+  podria:['El proveedor ha subido tarifas.','Se acabó una oferta anterior.','Error de lectura de la foto (revisa la línea).'],
+  docs:[['Compra anterior · 14 sep','19,80 € / caja'],['Compra actual · 26 oct','21,10 € / caja']],
+  acc:[['Entendido','Hecho: guardado en el historial de precios.'],['Ignorar este producto','Hecho: no avisaremos de más subidas de este producto.']]}
+};
+const REVISAR = [
+ {id:'r1',prov:'frutas',t:'Factura F-0415',dud:['Fecha de vencimiento','Un precio unitario']},
+ {id:'r2',prov:'carnes',t:'Albarán A-3302 (manuscrito)',dud:['Cantidad de la línea 3']},
+ {id:'r3',prov:'gomez',t:'Ticket 18:42',dud:['Total (no cuadra con las líneas)']}
+];
+const GASTO = [['Cervezas Levante',1248.60],['Distribuciones Gómez',540.00],['Carnes El Pastor',220.15],['Frutas Mari',312.40]];
+
+// ---------- estado en memoria ----------
+const st = {resueltos:{}, msg:null};
+const eur = n => n.toLocaleString('es-ES',{style:'currency',currency:'EUR'});
+const avisosVivos = () => Object.keys(AVISOS).filter(k=>!st.resueltos[k]);
+const porPagar = () => SEG.filter(s=>s.tipo==='Factura' && !s.pagada);
+const totPagarConf = () => porPagar().filter(s=>!s.prov_).reduce((a,s)=>a+s.total,0);
+const totPagarProv = () => porPagar().filter(s=>s.prov_).reduce((a,s)=>a+s.total,0);
+const ICON = {ok:'✓',warn:'!',bad:'✕',none:'·'};
+
+// ---------- piezas comunes ----------
+function track(s){
+  return `<div class="track">${s.pasos.map(p=>`<div class="step ${p.s}"><div class="dot">${ICON[p.s]}</div>${p.t.replace('Por pagar – vencida','Vencida')}</div>`).join('')}</div>`;
+}
+function segCard(s){
+  const av = s.avisos.filter(a=>!st.resueltos[a]).length;
+  return `<div class="card tap" data-go="#/seg/${s.id}">
+   <div class="row"><div><b>${PROVS[s.prov].ico} ${PROVS[s.prov].n}</b><div class="muted">${s.tipo} ${s.id} · ${s.fecha}</div></div>
+   <div style="text-align:right"><div class="amount">${eur(s.total)}</div>${s.prov_?'<span class="chip prov">provisional</span>':''}${av?` <span class="chip warn">${av} aviso${av>1?'s':''}</span>`:''}</div></div>
+   ${track(s)}</div>`;
+}
+function avisoCard(k){
+  const a = AVISOS[k];
+  return `<div class="card tap" data-go="#/aviso/${k}"><div class="todo"><div class="ico">${a.ico}</div><div style="flex:1"><span class="chip warn">${a.tipo}</span><div><b>${a.tit}</b></div></div><div style="font-size:24px">›</div></div></div>`;
+}
+function revCard(r){
+  return `<div class="card tap" data-go="#/revisar"><div class="row"><div><b>${PROVS[r.prov].ico} ${r.t}</b><div class="muted">Dudoso: ${r.dud.join(', ')}</div></div><span class="chip">revisar</span></div></div>`;
+}
+
+// ---------- pantallas comunes ----------
+function pSeg(id){
+  const s = SEG.find(x=>x.id===id);
+  const av = s.avisos.filter(a=>!st.resueltos[a]);
+  return `<div class="card"><div class="row"><div><b>${PROVS[s.prov].ico} ${PROVS[s.prov].n}</b><div class="muted">${s.tipo} ${s.id}</div></div><div class="amount">${eur(s.total)}</div></div>
+   ${s.prov_?'<div class="box"><b>Provisional:</b> esta factura aún no la has revisado. Revísala para darla por buena.</div>':''}
+   ${s.pasos.map(p=>`<div class="vstep ${p.s}"><div class="dot">${ICON[p.s]}</div><div><b>${p.t}</b><span class="muted">${p.d}</span></div></div>`).join('')}</div>
+   ${av.length?'<h2>Avisos de esta factura</h2>'+av.map(avisoCard).join(''):''}
+   <div class="card"><b>Historia</b><div class="muted">28 oct · Subida · 28 oct · Leída por la IA · ${s.prov_?'Pendiente de revisar':'Revisada por ti 29 oct'}</div></div>
+   ${s.tipo==='Factura'&&!s.pagada?'<button class="btn">Marcar como pagada en efectivo</button><button class="btn alt">Ver foto original</button>':'<button class="btn alt">Ver foto original</button>'}`;
+}
+function pAviso(k){
+  const a = AVISOS[k];
+  if(st.resueltos[k]) return `<div class="toast">${st.resueltos[k]}</div><button class="btn alt" data-go="#/avisos">Volver a los avisos</button>`;
+  const list = x=>`<ul>${x.map(i=>`<li>${i}</li>`).join('')}</ul>`;
+  return `<div class="card"><div class="todo"><div class="ico">${a.ico}</div><div><span class="chip warn">${a.tipo}</span><div><b>${a.tit}</b></div></div></div></div>
+   <div class="box" style="border-color:var(--bad)"><h3>Qué pasa</h3>${a.pasa}</div>
+   <div class="pair">${a.docs.map(d=>`<div class="card"><div class="muted">${d[0]}</div><b class="hl">${d[1]}</b><div style="height:60px;background:repeating-linear-gradient(45deg,#eee,#eee 6px,#f7f7f7 6px,#f7f7f7 12px);border-radius:8px;margin-top:6px;display:grid;place-items:center" class="muted">foto</div></div>`).join('')}</div>
+   <div class="box" style="border-color:var(--blue)"><h3>Por qué lo creemos</h3>${list(a.porque)}</div>
+   <div class="box"><h3>Qué podría estar pasando</h3>${list(a.podria)}<div class="muted" style="margin-top:6px">No lo sabemos seguro: decides tú.</div></div>
+   <h2>Qué puedes hacer</h2>${a.acc.map((x,i)=>`<button class="btn ${i?'alt':''}" data-res="${k}" data-i="${i}">${x[0]}</button>`).join('')}
+   <button class="btn alt" data-go="#/seg/${a.seg}">Ver la factura completa</button>`;
+}
+function pRevisar(){
+  return `<div class="card"><b>Revisando: Factura F-0415</b><div class="muted">Foto a la izquierda, datos a la derecha (en móvil, uno encima de otro).</div>
+   <div style="height:90px;background:repeating-linear-gradient(45deg,#eee,#eee 6px,#f7f7f7 6px,#f7f7f7 12px);border-radius:8px;margin:8px 0;display:grid;place-items:center" class="muted">foto del documento</div>
+   <label class="muted">Fecha de vencimiento <span class="chip warn">dudoso</span></label><input value="01/11/2026" style="width:100%;font:inherit;padding:12px;border:2px solid var(--warn);border-radius:12px;margin:4px 0 10px">
+   <label class="muted">Total</label><input value="312,40" style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:12px;margin:4px 0 10px">
+   <button class="btn">Todo correcto, marcar como revisada</button></div>`;
+}
+function pGasto(){
+  const max = Math.max(...GASTO.map(g=>g[1]));
+  return `<div class="card"><b>Gasto de octubre por proveedor</b>${GASTO.map(g=>`<div style="margin-top:10px" class="row"><span>${g[0]}</span><b>${eur(g[1])}</b></div><div class="bar" style="width:${g[1]/max*100}%"></div>`).join('')}
+   <div class="row"><b>Total</b><b class="amount">${eur(GASTO.reduce((a,g)=>a+g[1],0))}</b></div><div class="muted">Incluye 312,40 € provisionales.</div></div>`;
+}
+function pListaPagar(){
+  return `<div class="card"><div class="row"><b>Total por pagar</b><span class="amount">${eur(totPagarConf()+totPagarProv())}</span></div>
+   <div class="muted">${eur(totPagarConf())} confirmado + ${eur(totPagarProv())} provisional</div></div>${porPagar().map(segCard).join('')}`;
+}
+function pAvisos(){
+  const v = avisosVivos();
+  return v.length? v.map(avisoCard).join('') : '<div class="card">🎉 Todo en orden. No hay avisos.</div>';
+}
+function pFacturas(){ return SEG.map(segCard).join(''); }
+
+// ---------- homes por variante ----------
+const HOME = {
+ A(){ // Baldosas
+  return `<div class="tiles">
+   <button class="tile t-pagar" data-go="#/pagar"><span class="ico">💶</span><span><span class="lbl">Por pagar</span><div class="big">${eur(totPagarConf()+totPagarProv())}</div><small>${porPagar().length} facturas · ${eur(totPagarProv())} provisional</small></span></button>
+   <button class="tile t-rev" data-go="#/revisar-lista"><span class="ico">👀</span><span><span class="lbl">Por revisar</span><div class="big">${REVISAR.length}</div><small>documentos esperando tu OK</small></span></button>
+   <button class="tile t-av" data-go="#/avisos"><span class="ico">🔔</span><span><span class="lbl">Avisos</span><div class="big">${avisosVivos().length}</div><small>cosas que no cuadran</small></span></button>
+   <button class="tile t-gasto" data-go="#/gasto"><span class="ico">📊</span><span><span class="lbl">Gasto de octubre</span><div class="big">${eur(GASTO.reduce((a,g)=>a+g[1],0))}</div><small>por proveedor</small></span></button>
+  </div><button class="btn" style="margin-top:16px">📷 Subir fotos</button>
+  <h2>Últimas facturas</h2>${SEG.slice(0,2).map(segCard).join('')}`;
+ },
+ B(){ // Por proveedor con semáforo
+  const luz = p=>{ const xs=SEG.filter(s=>s.prov===p); const av=xs.some(s=>s.avisos.some(a=>!st.resueltos[a])||s.pasos.some(q=>q.s==='bad')); const w=xs.some(s=>s.pasos.some(q=>q.s==='warn')); return av?'bad':w?'warn':'ok'; };
+  return `<div class="card" style="background:#fff7e6"><div class="row"><div><div class="muted">Hoy debes</div><div class="amount" style="font-size:30px">${eur(totPagarConf()+totPagarProv())}</div></div><button class="btn" style="width:auto;margin:0;padding:12px 16px">📷 Subir</button></div></div>
+   <h2>Tus proveedores</h2>
+   ${Object.keys(PROVS).map(p=>{const xs=SEG.filter(s=>s.prov===p);const l=luz(p);const debe=xs.filter(s=>s.tipo==='Factura'&&!s.pagada).reduce((a,s)=>a+s.total,0);
+    const n=xs.reduce((a,s)=>a+s.avisos.filter(k=>!st.resueltos[k]).length,0);
+    return `<div class="card tap" data-go="#/prov/${p}"><div class="row"><div style="display:flex;gap:12px;align-items:center"><div class="step ${l}" style="width:38px"><div class="dot" style="margin:0">${l==='ok'?'✓':l==='warn'?'!':'✕'}</div></div><div><b>${PROVS[p].ico} ${PROVS[p].n}</b><div class="muted">${n?n+' aviso'+(n>1?'s':''):'Todo en orden'}</div></div></div><div class="amount">${debe?eur(debe):'—'}</div></div></div>`;}).join('')}
+   <button class="btn alt" data-go="#/revisar-lista">👀 ${REVISAR.length} documentos por revisar</button>
+   <button class="btn alt" data-go="#/gasto">📊 Gasto del mes</button>`;
+ },
+ C(){ // Qué hacer hoy
+  const tareas = [];
+  SEG.filter(s=>s.pasos[2].s==='bad').forEach(s=>tareas.push(`<div class="card tap" data-go="#/seg/${s.id}" style="border-left:8px solid var(--bad)"><div class="todo"><div class="ico">⏰</div><div style="flex:1"><b>Paga a ${PROVS[s.prov].n}</b><div class="muted">Venció ayer · ${s.id}</div></div><div class="amount">${eur(s.total)}</div></div></div>`));
+  REVISAR.length && tareas.push(`<div class="card tap" data-go="#/revisar-lista" style="border-left:8px solid var(--blue)"><div class="todo"><div class="ico">👀</div><div style="flex:1"><b>Revisa ${REVISAR.length} documentos</b><div class="muted">La IA los ha leído; falta tu OK</div></div><div style="font-size:24px">›</div></div></div>`);
+  avisosVivos().forEach(k=>tareas.push(`<div class="card tap" data-go="#/aviso/${k}" style="border-left:8px solid var(--warn)"><div class="todo"><div class="ico">${AVISOS[k].ico}</div><div style="flex:1"><b>${AVISOS[k].tit}</b></div><div style="font-size:24px">›</div></div></div>`));
+  SEG.filter(s=>s.tipo==='Factura'&&!s.pagada&&s.pasos[2].s==='warn').forEach(s=>tareas.push(`<div class="card tap" data-go="#/seg/${s.id}" style="border-left:8px solid var(--none)"><div class="todo"><div class="ico">🗓️</div><div style="flex:1"><b>Próximo pago: ${PROVS[s.prov].n}</b><div class="muted">Vence el ${s.vence}</div></div><div class="amount">${eur(s.total)}</div></div></div>`));
+  return `<div class="muted">Hoy, ${HOY}. Esto es lo que necesita tu atención, de más a menos urgente:</div><h2 style="margin-top:8px">Qué hacer hoy</h2>${tareas.join('')}<button class="btn">📷 Subir fotos</button>`;
+ }
+};
+
+// ---------- router ----------
+const TITULOS = {pagar:'Por pagar',avisos:'Avisos','revisar-lista':'Por revisar',gasto:'Gasto',facturas:'Facturas'};
+function variant(){ const v=new URLSearchParams(location.search).get('variant'); return ['A','B','C'].includes(v)?v:'A'; }
+function render(){
+  const v = variant(); const h = location.hash || '#/inicio'; const [,r,arg] = h.split('/');
+  let title='🍻 Mi bar', body='', back=false;
+  if(r==='inicio'||!r){ body = HOME[v](); }
+  else if(r==='pagar'){ title='Por pagar'; body=pListaPagar(); back=true; }
+  else if(r==='avisos'){ title='Avisos'; body=pAvisos(); back=true; }
+  else if(r==='revisar-lista'){ title='Por revisar'; body=REVISAR.map(revCard).join(''); back=true; }
+  else if(r==='revisar'){ title='Revisar documento'; body=pRevisar(); back=true; }
+  else if(r==='gasto'){ title='Gasto'; body=pGasto(); back=true; }
+  else if(r==='facturas'){ title='Facturas'; body=pFacturas(); back=true; }
+  else if(r==='seg'){ title='Seguimiento'; body=pSeg(arg); back=true; }
+  else if(r==='aviso'){ title='Aviso'; body=pAviso(arg); back=true; }
+  else if(r==='prov'){ title=PROVS[arg].n; body=SEG.filter(s=>s.prov===arg).map(segCard).join('')||'Sin documentos'; back=true; }
+  if(v==='C'){ back = false; if(r&&r!=='inicio') title = title; }
+  const bell = v==='B'&&!back ? `<button class="bell" data-go="#/avisos">🔔${avisosVivos().length?`<b>${avisosVivos().length}</b>`:''}</button>`:'';
+  const tabs = v==='C' ? `<nav class="tabs">${[['inicio','🏠','Hoy',0],['facturas','🧾','Facturas',0],['avisos','🔔','Avisos',avisosVivos().length],['gasto','📊','Gasto',0]].map(t=>`<button class="${(r||'inicio')===t[0]?'on':''}" data-go="#/${t[0]}"><span>${t[1]}</span>${t[2]}${t[3]?`<b>${t[3]}</b>`:''}</button>`).join('')}</nav>`:'';
+  document.getElementById('app').innerHTML = `<header class="top">${back?'<button class="back" data-back>‹</button>':''}<h1>${title}</h1>${bell}</header><main>${body}</main>${tabs}`;
+  document.getElementById('sw').className = 'sw'+(v==='C'?' hasTabs':'');
+  const names={A:'Baldosas',B:'Por proveedor',C:'Qué hacer hoy'};
+  document.getElementById('sw').innerHTML = `<button data-sw="-1">←</button><span>${v} · ${names[v]}</span><button data-sw="1">→</button>`;
+  window.scrollTo(0,0);
+}
+function setVariant(d){ const L=['A','B','C']; const n=L[(L.indexOf(variant())+d+3)%3]; const u=new URL(location); u.searchParams.set('variant',n); history.replaceState(null,'',u); render(); }
+document.addEventListener('click',e=>{
+  const g=e.target.closest('[data-go]'); if(g){ location.hash=g.dataset.go; return; }
+  if(e.target.closest('[data-back]')){ history.back(); return; }
+  const s=e.target.closest('[data-sw]'); if(s){ setVariant(+s.dataset.sw); return; }
+  const r=e.target.closest('[data-res]'); if(r){ st.resueltos[r.dataset.res]=AVISOS[r.dataset.res].acc[+r.dataset.i][1]; render(); }
+});
+document.addEventListener('keydown',e=>{ if(/INPUT|TEXTAREA/.test(document.activeElement.tagName))return; if(e.key==='ArrowLeft')setVariant(-1); if(e.key==='ArrowRight')setVariant(1); });
+addEventListener('hashchange',render); render();
+</script>
+</body>
+</html>

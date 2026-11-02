@@ -1,0 +1,3 @@
+# Fotos reales de albaranes y facturas a servicios de terceros
+
+El prototipo del bar trabaja con documentos reales (NIF, nombres, precios), lo que contradice la regla del repo de usar solo datos sintéticos o anonimizados en desarrollo. Decidimos una excepción solo para este contexto, con tres condiciones: el dueño da su consentimiento por escrito y esa lista de destinatarios incluye a Anthropic (lectura de imágenes), Vercel (alojamiento y almacenamiento de originales) y el proveedor de PostgreSQL; las fotos reales nunca entran en git; y los tests usan solo imágenes sintéticas y respuestas de IA falsas. Sin imágenes sin enmascarar no hay lectura por visión, que es la razón de ser del prototipo.

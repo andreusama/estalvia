@@ -1,0 +1,18 @@
+{% extends "plataforma/base.html" %}{% load i18n %}
+{% block content %}
+<header class="section">
+  <h1>{% translate "Tus herramientas" %}</h1>
+  <p class="muted" style="margin-top:var(--s-near)">{% translate "Elige con cuál quieres trabajar." %}</p>
+</header>
+<section class="section">
+  <div class="grid">
+    {% for app in apps %}
+    <article class="group">
+      <h2 class="group__name">{{ app.nombre }}</h2>
+      <p class="group__note" style="margin-top:0">{{ app.descripcion }}</p>
+      <div class="group__actions"><a class="btn btn--primary" href="{{ app.url }}">{% translate "Abrir" %}</a></div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
