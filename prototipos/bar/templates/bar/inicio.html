@@ -7,6 +7,31 @@
 </header>
 {% if confirmado %}<p class="msg msg--ok" role="status" data-aviso="{% translate 'Documento confirmado.' %}">= {% translate "Documento confirmado." %}</p>{% endif %}
 
+{% if hay_cifras %}
+<section class="section" aria-label="{% translate 'Estado de tus facturas' %}">
+  <div class="summary">
+    <div class="summary__bar" role="img" aria-label="{{ c.pagadas }} {% translate 'pagadas' %}, {{ c.por_revisar }} {% translate 'por revisar' %}, {{ c.sin_pagar }} {% translate 'sin pagar' %}">
+      {% if c.pagadas %}<span class="is-ok" style="flex:{{ c.pagadas }}"></span>{% endif %}
+      {% if c.por_revisar %}<span class="is-diff" style="flex:{{ c.por_revisar }}"></span>{% endif %}
+      {% if c.sin_pagar %}<span class="is-wait" style="flex:{{ c.sin_pagar }}"></span>{% endif %}
+    </div>
+    <div class="summary__figures">
+      <div class="figure is-ok"><span class="figure__num">{{ c.pagadas }}</span><span class="figure__label">{% translate "Pagadas" %}</span></div>
+      <div class="figure is-diff"><span class="figure__num">{{ c.por_revisar }}</span><span class="figure__label">{% translate "Por revisar" %}</span></div>
+      <div class="figure is-wait"><span class="figure__num">{{ c.sin_pagar }}</span><span class="figure__label">{% translate "Sin pagar" %}</span></div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="section" aria-labelledby="t-pagos">
+  <h2 id="t-pagos" class="visually-hidden">{% translate "Pagos" %}</h2>
+  <a class="fila is-{% if c.por_confirmar %}ok{% else %}wait{% endif %}" href="{% url 'bar:pagos' %}">
+    <span class="fila__main"><span class="fila__nombre">{% translate "Pagos del banco" %}</span><span class="fila__sub">{% if c.por_confirmar %}{% blocktranslate count n=c.por_confirmar %}{{ n }} pago por confirmar{% plural %}{{ n }} pagos por confirmar{% endblocktranslate %}{% else %}{% translate "Sube el extracto (CSV) de tu banco" %}{% endif %}</span></span>
+    <span class="fila__lado"><span class="pill">{% if c.por_confirmar %}{% translate "Por confirmar" %}{% else %}{% translate "Abrir" %}{% endif %}</span></span>
+  </a>
+</section>
+
 <section class="section" aria-labelledby="t-docs">
   <div class="cabecera-lista"><h2 id="t-docs">{% translate "Tus documentos" %}</h2>{% if docs %}<span class="muted num">{{ docs|length }}</span>{% endif %}</div>
   {% if docs %}
@@ -28,26 +53,4 @@
   <div class="vacio"><p class="muted">{% translate "Todavía no has subido nada. Haz una foto de un albarán o una factura y aparecerá aquí." %}</p><a class="btn btn--primary" href="{% url 'bar:subir' %}">{% translate "Subir documento" %}</a></div>
   {% endif %}
 </section>
-
-<section class="section" aria-labelledby="t-grupos">
-  <p class="demo-flag">{% translate "Datos de ejemplo: todavía no se emparejan tus documentos." %}</p>
-  <div class="summary" style="margin-top:var(--s-group)">
-    <div class="summary__bar" role="img" aria-label="{{ cifras.ok }} {% translate 'coinciden' %}, {{ cifras.diff }} {% translate 'con diferencias' %}, {{ cifras.wait }} {% translate 'pendientes' %}">
-      {% if cifras.ok %}<span class="is-ok" style="flex:{{ cifras.ok }}"></span>{% endif %}
-      {% if cifras.diff %}<span class="is-diff" style="flex:{{ cifras.diff }}"></span>{% endif %}
-      {% if cifras.wait %}<span class="is-wait" style="flex:{{ cifras.wait }}"></span>{% endif %}
-    </div>
-    <div class="summary__figures">
-      <div class="figure is-ok"><span class="figure__num">{{ cifras.ok }}</span><span class="figure__label">{% translate "Coinciden" %}</span></div>
-      <div class="figure is-diff"><span class="figure__num">{{ cifras.diff }}</span><span class="figure__label">{% translate "Diferencias" %}</span></div>
-      <div class="figure is-wait"><span class="figure__num">{{ cifras.wait }}</span><span class="figure__label">{% translate "Pendientes" %}</span></div>
-    </div>
-  </div>
-</section>
-
-<section class="section" aria-labelledby="t-grupos">
-  <div class="cabecera-lista"><h2 id="t-grupos">{% translate "Grupos" %}</h2><span class="muted">{% translate "Por urgencia" %}</span></div>
-  <div class="lista">{% for g in grupos %}{% include "bar/_grupo_card.html" %}{% endfor %}</div>
-</section>
-{% include "bar/_hoja.html" %}
 {% endblock %}

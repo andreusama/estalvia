@@ -13,7 +13,7 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7h11M9 12h11M9 17h11M4 7l1 1 2-2M4 12l1 1 2-2M4 17l1 1 2-2"/></svg>
       <span>{% translate "Revisar" %}</span>
       <span id="tab-contador" class="tab__badge" aria-hidden="true"{% if not n %} hidden{% endif %}>{{ n }}</span>
-      {% if n %}<span class="visually-hidden">{% blocktranslate count n=n %}{{ n }} diferencia por revisar{% plural %}{{ n }} diferencias por revisar{% endblocktranslate %}</span>{% endif %}
+      {% if n %}<span class="visually-hidden">{% blocktranslate count n=n %}{{ n }} cosa por revisar{% plural %}{{ n }} cosas por revisar{% endblocktranslate %}</span>{% endif %}
     </a>
   </div>
 </nav>

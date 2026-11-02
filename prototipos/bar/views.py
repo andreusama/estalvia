@@ -9,10 +9,11 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from . import ejemplo, servicios
+from . import extracto, panel, servicios
+from . import pagos as banco
 from .comprobaciones import comprobar
-from .forms import DocumentoForm, IvaFormSet, LineaFormSet, ReferenciaFormSet
-from .models import Documento
+from .forms import DocumentoForm, IvaFormSet, LineaFormSet, PerfilImportacionForm, ReferenciaFormSet
+from .models import Documento, Movimiento, PerfilImportacion
 from .numeros import normalizar_referencia  # noqa: F401  (se usará en la conciliación)
 
 # Color con significado: rojo = hay que hacer algo, gris = esperando, verde = hecho
@@ -52,23 +53,20 @@ def _url_documento(d) -> str:
 
 @necesita_bd
 def inicio(request):
-    """Resumen: los documentos de verdad arriba y, debajo, los grupos de ejemplo (la conciliación aún no existe)."""
+    """Resumen: cifras reales (pagadas, por revisar, sin pagar), acceso a Pagos y los documentos subidos."""
     docs = list(Documento.objects.defer("archivo", "respuesta_ia"))
     for d in docs:
         d.estilo = ESTILO_ESTADO[d.estado]
         d.url = _url_documento(d)
-    hoy = timezone.localdate()
-    lista = ejemplo.grupos(hoy)
-    cifras = ejemplo.resumen(lista)
+    c = panel.cifras()
     return render(
         request,
         "bar/inicio.html",
         {
             "docs": docs,
-            "grupos": lista,
-            "cifras": cifras,
-            "total_grupos": len(lista),
-            "hoy": hoy,
+            "c": c,
+            "hay_cifras": bool(c["pagadas"] or c["por_revisar"] or c["sin_pagar"]),
+            "hoy": timezone.localdate(),
             "confirmado": "confirmado" in request.GET,
         },
     )
@@ -76,19 +74,11 @@ def inicio(request):
 
 @necesita_bd
 def revisar(request):
-    """Revisar: solo los grupos con diferencia, de mayor a menor importe (grupos de ejemplo)."""
-    lista = ejemplo.con_diferencias(ejemplo.grupos(timezone.localdate()))
-    cifras = ejemplo.resumen(lista)
-    return render(request, "bar/revisar.html", {"grupos": lista, "cifras": cifras})
-
-
-@necesita_bd
-def grupo(request, slug):
-    """Detalle de un grupo en página completa (sin JavaScript); con JavaScript se abre como hoja inferior."""
-    for g in ejemplo.grupos(timezone.localdate()):
-        if g.id == slug:
-            return render(request, "bar/grupo.html", {"g": g})
-    raise Http404
+    """Revisar: lo que necesita una acción tuya: documentos por revisar y avisos de pagos."""
+    c = panel.cifras()
+    for d in c["docs"]:
+        d.url = _url_documento(d)
+    return render(request, "bar/revisar.html", {"c": c})
 
 
 @necesita_bd
@@ -244,3 +234,107 @@ def documento(request, pk):
         }
     )
     return render(request, "bar/documento.html", contexto)
+
+
+# ---- Pagos: extracto del banco, pagos propuestos y facturas sin pagar ----
+
+AVISOS_PAGOS = {
+    "confirmado": "Pago confirmado.",
+    "efectivo": "Factura marcada como pagada en efectivo.",
+    "ignorado": "Movimiento marcado como visto.",
+    "formato": "Formato del banco guardado.",
+    "no_valido": "Esa propuesta ya no es válida: vuelve a mirar la lista.",
+}
+
+
+@necesita_bd
+def pagos_pantalla(request):
+    hoy = timezone.localdate()
+    perfil = PerfilImportacion.por_defecto()
+    todas = banco.facturas()
+    veredictos = banco.analizar(banco.movimientos_por_mirar(), todas)
+    for f in todas:
+        f.vencida = banco.vencida(f, hoy)
+    errores = request.session.pop("errores_extracto", [])
+    resumen = None
+    if "importados" in request.GET:
+        resumen = {"nuevos": request.GET.get("importados"), "repetidos": request.GET.get("repetidos", "0")}
+    return render(
+        request,
+        "bar/pagos.html",
+        {
+            "perfil": perfil,
+            "propuestas": [v for v in veredictos if v.confirmable],
+            "avisos": [v for v in veredictos if not v.confirmable],
+            "sin_pagar": [f for f in todas if not f.esta_pagada and f.total is not None],
+            "pagadas": [f for f in todas if f.esta_pagada],
+            "n_movimientos": Movimiento.objects.count(),
+            "resumen": resumen,
+            "errores_extracto": errores,
+            "mensaje": AVISOS_PAGOS.get(request.GET.get("hecho", "")),
+        },
+    )
+
+
+@necesita_bd
+@require_POST
+def importar_extracto_vista(request):
+    perfil = PerfilImportacion.por_defecto()
+    archivo_csv = request.FILES.get("extracto")
+    if not archivo_csv:
+        request.session["errores_extracto"] = ["No has elegido ningún fichero."]
+        return redirect("bar:pagos")
+    try:
+        resultado = extracto.importar_extracto(perfil, archivo_csv.name, archivo_csv.read())
+    except extracto.ExtractoNoValido as e:
+        request.session["errores_extracto"] = [str(e)]
+        return redirect("bar:pagos")
+    if resultado.errores:  # la cookie de sesión es pequeña: se enseñan las 8 primeras
+        request.session["errores_extracto"] = [f"Línea {e.linea}: {e.motivo}" for e in resultado.errores[:8]] + (
+            [f"…y {len(resultado.errores) - 8} más."] if len(resultado.errores) > 8 else []
+        )
+    return redirect(f"{reverse('bar:pagos')}?importados={resultado.nuevos}&repetidos={resultado.repetidos}")
+
+
+@necesita_bd
+@require_POST
+def confirmar_pago_vista(request, pk):
+    mov = get_object_or_404(Movimiento, pk=pk, pago__isnull=True)
+    veredicto = next(
+        (v for v in banco.analizar(banco.movimientos_por_mirar(), banco.facturas()) if v.movimiento.pk == mov.pk), None
+    )
+    if not veredicto or not veredicto.confirmable:  # no se fía del formulario: se vuelve a comprobar
+        return redirect(f"{reverse('bar:pagos')}?hecho=no_valido")
+    with transaction.atomic():
+        banco.confirmar_pago(mov, veredicto.factura)
+    return redirect(f"{reverse('bar:pagos')}?hecho=confirmado")
+
+
+@necesita_bd
+@require_POST
+def pago_efectivo_vista(request, pk):
+    factura = next((f for f in banco.facturas() if f.pk == pk and not f.esta_pagada and f.total is not None), None)
+    if factura is None:
+        raise Http404
+    with transaction.atomic():
+        banco.pagar_en_efectivo(factura)
+    return redirect(f"{reverse('bar:pagos')}?hecho=efectivo")
+
+
+@necesita_bd
+@require_POST
+def ignorar_movimiento(request, pk):
+    mov = get_object_or_404(Movimiento, pk=pk, pago__isnull=True)
+    mov.ignorado_en = timezone.now()
+    mov.save(update_fields=["ignorado_en"])
+    return redirect(f"{reverse('bar:pagos')}?hecho=ignorado")
+
+
+@necesita_bd
+def formato_banco(request):
+    perfil = PerfilImportacion.por_defecto()
+    form = PerfilImportacionForm(request.POST or None, instance=perfil)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        return redirect(f"{reverse('bar:pagos')}?hecho=formato")
+    return render(request, "bar/formato_banco.html", {"form": form})

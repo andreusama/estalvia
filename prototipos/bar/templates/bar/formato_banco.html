@@ -1,0 +1,23 @@
+{% extends "bar/base.html" %}{% load i18n %}
+{% block title %}{% translate "Formato del banco" %} · Estalvia{% endblock %}
+{% block mainclass %}app__main--libre{% endblock %}
+{% block tabs %}{% endblock %}
+{% block content %}
+<header class="appbar appbar--atras">
+  <a class="icono" href="{% url 'bar:pagos' %}" aria-label="{% translate 'Volver a Pagos' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></a>
+  <h1>{% translate "Formato del banco" %}</h1>
+</header>
+<p class="muted">{% translate "Dile cómo es el fichero que descarga tu banco: los nombres de las columnas, el formato de fecha y cómo escribe los números. Abre el CSV con el bloc de notas para ver la primera línea." %}</p>
+<form method="post" class="section lista">
+  {% csrf_token %}
+  {% for e in form.non_field_errors %}<p class="msg" role="alert">{{ e }}</p>{% endfor %}
+  {% for campo in form %}
+  <div class="campo">
+    <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+    {{ campo }}
+    {% for e in campo.errors %}<p class="msg" role="alert">{{ e }}</p>{% endfor %}
+  </div>
+  {% endfor %}
+  <button class="btn btn--primary btn--block" type="submit">{% translate "Guardar" %}</button>
+</form>
+{% endblock %}

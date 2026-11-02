@@ -3,7 +3,7 @@ from decimal import Decimal
 from django import forms
 from django.forms import inlineformset_factory
 
-from .models import DesgloseIva, Documento, Linea, ReferenciaAlbaran
+from .models import DesgloseIva, Documento, Linea, PerfilImportacion, ReferenciaAlbaran
 from .numeros import a_decimal, num
 
 
@@ -118,3 +118,44 @@ class ReferenciaForm(forms.ModelForm):
 LineaFormSet = inlineformset_factory(Documento, Linea, form=LineaForm, extra=1, can_delete=True)
 IvaFormSet = inlineformset_factory(Documento, DesgloseIva, form=IvaForm, extra=1, can_delete=True)
 ReferenciaFormSet = inlineformset_factory(Documento, ReferenciaAlbaran, form=ReferenciaForm, extra=1, can_delete=True)
+
+
+class PerfilImportacionForm(forms.ModelForm):
+    """Cómo lee la aplicación el extracto de tu banco. Sin contraseñas ni número de cuenta completo."""
+
+    class Meta:
+        model = PerfilImportacion
+        fields = [
+            "nombre", "cuenta_final", "separador", "formato_fecha", "sep_miles", "sep_decimal",
+            "col_fecha", "col_concepto", "col_concepto_aux", "col_importe", "col_abono", "col_saldo",
+        ]  # fmt: skip
+        labels = {
+            "nombre": "Nombre del banco",
+            "cuenta_final": "Últimas 4 cifras de la cuenta (opcional)",
+            "separador": "Separador de columnas",
+            "formato_fecha": "Formato de fecha",
+            "sep_miles": "Separador de miles",
+            "sep_decimal": "Separador de decimales",
+            "col_fecha": "Columna de la fecha",
+            "col_concepto": "Columna del concepto",
+            "col_concepto_aux": "Columna del concepto de reserva (opcional)",
+            "col_importe": "Columna del importe (o de los cargos)",
+            "col_abono": "Columna de abonos (solo si el banco separa cargos y abonos)",
+            "col_saldo": "Columna del saldo (opcional)",
+        }
+
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        _estilo(self)
+
+    def clean_cuenta_final(self):
+        cifras = self.cleaned_data["cuenta_final"].strip()
+        if cifras and not (cifras.isdigit() and len(cifras) == 4):
+            raise forms.ValidationError("Escribe solo las 4 últimas cifras de la cuenta, o déjalo vacío.")
+        return cifras
+
+    def clean(self):
+        datos = super().clean()
+        if datos.get("sep_miles") and datos.get("sep_miles") == datos.get("sep_decimal"):
+            raise forms.ValidationError("El separador de miles y el de decimales no pueden ser el mismo.")
+        return datos

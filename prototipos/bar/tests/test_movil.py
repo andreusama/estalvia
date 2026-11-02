@@ -1,73 +1,68 @@
-"""Versión móvil: grupos de ejemplo (cifras exactas) y pantallas Resumen, Revisar, Detalle y Confirmar lectura."""
+"""Versión móvil: Resumen, Revisar, contador de la barra inferior y Confirmar lectura, solo con datos reales."""
 
-from datetime import date
 from decimal import Decimal as D
 
 import pytest
 
-from prototipos.bar import ejemplo
+from prototipos.bar import panel
 from prototipos.bar.models import Documento
 from prototipos.bar.tests.conftest import DATOS_FACTURA
-from prototipos.bar.tests.test_flujo import subir
+from prototipos.bar.tests.test_flujo import leido, subir
+from prototipos.bar.tests.test_pagos import factura, importar
 
 pytestmark = pytest.mark.django_db
-HOY = date(2026, 11, 2)
 
 
-def por_id(slug):
-    return next(g for g in ejemplo.grupos(HOY) if g.id == slug)
+def test_sin_datos_no_se_inventa_nada(web):
+    resumen = web.get("/bar/").content.decode()
+    assert "Todavía no has subido nada" in resumen and "ejemplo" not in resumen.lower()
+    assert "summary__bar" not in resumen  # sin facturas no hay barra de proporción
+    revisar = web.get("/bar/revisar/").content.decode()
+    assert "Todo en orden este mes" in revisar and "ejemplo" not in revisar.lower()
+    assert 'id="tab-contador"' in revisar and "hidden" in revisar.split('id="tab-contador"')[1][:80]  # contador oculto
+    assert panel.cifras()["contador"] == 0
 
 
-def test_ferreteria_difiere_en_la_linea_3_por_12_50():
-    g = por_id("ferreteria-lleida")
-    assert (g.estado, g.diferencia, g.etiqueta) == ("diff", D("12.50"), "+12,50\xa0€")
-    assert (g.albaran.total, g.factura.total) == (D("86.40"), D("98.90"))
-    assert g.nota == "La factura cobra de más en la línea 3."
-    assert g.explicacion == "La factura cobra 2,22\xa0€ por unidad en la línea 3. El albarán indica 1,72\xa0€."
-    assert [p.difiere for p in g.pares] == [False, False, True]
+def test_resumen_cuenta_pagadas_por_revisar_y_sin_pagar_con_datos_reales(web):
+    pagada = factura(numero="F26-00001", total="12.69")
+    factura(numero="F26-00002", total="40.00")
+    factura(numero="F26-00003", total="55.00", estado=Documento.Estado.PROCESADO)
+    from prototipos.bar import pagos
 
-
-def test_un_albaran_sin_factura_esta_pendiente_y_dice_cuantos_dias():
-    g = por_id("transportes-garrigues")
-    assert (g.estado, g.simbolo, g.etiqueta, g.diferencia) == ("wait", "?", "Falta factura", None)
-    assert g.nota == "El albarán llegó hace 9 días."
-
-
-def test_sin_tolerancia_un_centimo_de_diferencia_ya_no_coincide():
-    g = por_id("distribuciones-segre")
-    assert (g.estado, g.simbolo) == ("ok", "=")
-    peor = ejemplo.GrupoEj(g.id, g.proveedor, g.albaran, g.factura, HOY)
-    linea = g.factura.lineas[1]
-    cambiada = ejemplo.LineaEj(linea.descripcion, linea.cantidad, linea.precio + D("0.01"), linea.unidad)
-    factura = ejemplo.DocEj(g.factura.numero, g.factura.fecha, (g.factura.lineas[0], cambiada))
-    assert ejemplo.GrupoEj(peor.id, peor.proveedor, peor.albaran, factura, HOY).estado == "diff"
-
-
-def test_resumen_y_revisar_ordenan_por_importe_y_suman_lo_por_reclamar():
-    lista = ejemplo.grupos(HOY)
-    assert [g.estado for g in lista] == ["diff"] * 5 + ["wait"] + ["ok"] * 2
-    diffs = ejemplo.con_diferencias(lista)
-    assert [g.diferencia for g in diffs] == [D("64.20"), D("22.00"), D("12.50"), D("8.90"), D("3.10")]
-    assert ejemplo.resumen(lista) == {"ok": 2, "diff": 5, "wait": 1, "por_reclamar": D("110.70")}
-
-
-def test_resumen_dice_que_los_grupos_son_de_ejemplo_y_tiene_las_tres_pestanas(web):
+    pagos.pagar_en_efectivo(pagada)
+    c = panel.cifras()
+    assert (c["pagadas"], c["por_revisar"], c["sin_pagar"]) == (1, 1, 2)
     html = web.get("/bar/").content.decode()
-    assert "Datos de ejemplo" in html and "Ferretería Lleida" in html and "Todavía no has subido nada" in html
-    for destino in ("/bar/", "/bar/subir/", "/bar/revisar/"):
-        assert f'href="{destino}"' in html
-    assert 'aria-current="page"' in html and "5 diferencias por revisar" in html
+    assert "Pagadas" in html and "Por revisar" in html and "Sin pagar" in html and "summary__bar" in html
 
 
-def test_revisar_muestra_el_total_por_reclamar_y_el_detalle_de_cada_grupo(web):
+def test_revisar_lista_lo_que_necesita_una_accion_y_el_contador_lo_cuenta(web, ia):
+    d = leido(web, ia)  # sube y lee: queda «por revisar»
+    factura(numero="F26-00009", total="12.69")
+    importar(
+        "Fecha;Concepto;Importe;Saldo\n"
+        "28/10/2026;TRANSF A DISTRIBUCIONES EJEMPLO SL FRA F26-00009;-12,69;1,00\n"
+        "28/10/2026;TRANSF A DISTRIBUCIONES EJEMPLO SL FRA F26-00009;-12,69;2,00\n"
+    )
+    c = panel.cifras()
+    assert [x.pk for x in c["docs"]] == [d.pk] and len(c["avisos"]) == 1 and c["contador"] == 2
     html = web.get("/bar/revisar/").content.decode()
-    assert "110,70\xa0€" in html and "+64,20\xa0€" in html and "5 diferencias" in html
-    detalle = web.get("/bar/grupos/ferreteria-lleida/").content.decode()
-    assert "98,90\xa0€" in detalle and "25 uds. × 2,22\xa0€" in detalle and "Diferencia de 12,50\xa0€" in detalle
-    assert web.get("/bar/grupos/no-existe/").status_code == 404
+    assert "2 cosas por revisar" in html and "Posible cobro doble" in html and "Por revisar" in html
+    assert 'class="tab__badge"' in html and "datos de ejemplo" not in html.lower()
 
 
-def test_confirmar_lectura_limpia_se_confirma_con_un_toque(web, ia, monkeypatch):
+def test_los_documentos_que_no_cuadran_van_primero_en_revisar(web, ia):
+    ia({**DATOS_FACTURA, "total": "99.99", "campos_dudosos": []})  # el total no es base más IVA: no cuadra
+    subir(web)
+    mal = Documento.objects.get()
+    web.post(f"/bar/documentos/{mal.pk}/leer/")
+    ok = factura(numero="F26-00007", total="500.00", estado=Documento.Estado.PROCESADO)
+    orden = [d.pk for d in panel.documentos_por_revisar()]
+    assert orden == [mal.pk, ok.pk] and panel.documentos_por_revisar()[0].fallos
+    assert "No cuadra" in web.get("/bar/revisar/").content.decode()
+
+
+def test_confirmar_lectura_limpia_se_confirma_con_un_toque(web, ia):
     ia({**DATOS_FACTURA, "campos_dudosos": []})
     subir(web)
     d = Documento.objects.get()
@@ -79,6 +74,8 @@ def test_confirmar_lectura_limpia_se_confirma_con_un_toque(web, ia, monkeypatch)
     d.refresh_from_db()
     assert r.status_code == 302 and d.estado == Documento.Estado.REVISADO
     assert d.eventos.filter(tipo="revisado").exists()
+    assert D(d.total) == D("12.69")
+    assert "Documento confirmado" in web.get("/bar/?confirmado=1").content.decode()
 
 
 def test_confirmar_lectura_con_dudas_no_se_puede_dar_por_buena_aqui(web, ia):

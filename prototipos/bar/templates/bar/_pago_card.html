@@ -1,0 +1,19 @@
+{% load i18n bar_extras %}
+<div class="group is-{{ v.estilo }}">
+  <div class="group__head"><span class="group__name">{{ v.proveedor|default:_("Movimiento del banco") }}</span><span class="pill">{{ v.etiqueta }}</span></div>
+  <div class="par">
+    <div class="doc"><span class="doc__kind">{% translate "Banco" %} <span class="mono">{{ v.movimiento.fecha|date:"j M" }}</span></span><span class="doc__amount">{{ v.movimiento.importe|eur }}</span></div>
+    <span class="rel" role="img" aria-label="{{ v.etiqueta }}">{{ v.simbolo }}</span>
+    {% if v.factura %}<div class="doc"><span class="doc__kind">{% translate "Factura" %} <span class="mono">{{ v.factura.numero }}</span></span><span class="doc__amount{% if v.estilo == 'diff' %} is-different{% endif %}">{{ v.factura.total|eur }}</span></div>
+    {% else %}<div class="doc doc--empty"><span class="doc__amount">{% translate "Sin factura" %}</span></div>{% endif %}
+  </div>
+  <p class="group__note mono muted">{{ v.movimiento.concepto }}</p>
+  <p class="group__note{% if v.estilo == 'diff' %} nota-roja{% endif %}">{{ v.texto }}</p>
+  {% if v.factura and v.factura.estado != "revisado" %}<p class="group__note muted">{% translate "Provisional: la factura aún no está revisada." %}</p>{% endif %}
+  <div class="group__actions">
+    {% if v.confirmable %}
+    <form method="post" action="{% url 'bar:confirmar_pago' v.movimiento.pk %}" style="flex:1">{% csrf_token %}<button class="btn btn--primary btn--block" type="submit">{% translate "Confirmar pago" %}</button></form>
+    {% endif %}
+    <form method="post" action="{% url 'bar:ignorar_movimiento' v.movimiento.pk %}" style="flex:1">{% csrf_token %}<button class="btn btn--secondary btn--block" type="submit">{% if v.confirmable %}{% translate "No es este pago" %}{% else %}{% translate "Ya lo he mirado" %}{% endif %}</button></form>
+  </div>
+</div>

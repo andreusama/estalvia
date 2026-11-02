@@ -3,36 +3,48 @@
 {% block content %}
 <header class="appbar">
   <div>
-    <p class="eyebrow"><span id="rev-n">{{ grupos|length }}</span> <span id="rev-n-txt" data-uno="{% translate 'diferencia' %}" data-varios="{% translate 'diferencias' %}">{% if grupos|length == 1 %}{% translate "diferencia" %}{% else %}{% translate "diferencias" %}{% endif %}</span></p>
+    <p class="eyebrow">{% blocktranslate count n=c.contador %}{{ n }} cosa por revisar{% plural %}{{ n }} cosas por revisar{% endblocktranslate %}</p>
     <h1>{% translate "Revisar" %}</h1>
   </div>
 </header>
 
-<div id="rev-vacio" class="vacio section" {% if grupos %}hidden{% endif %}>
+{% if c.docs %}
+<section class="section" aria-labelledby="t-docs">
+  <div class="cabecera-lista"><h2 id="t-docs">{% translate "Documentos" %}</h2><span class="muted num">{{ c.docs|length }}</span></div>
+  <div class="lista lista--junta">
+    {% for d in c.docs %}
+    <a class="fila is-diff" href="{{ d.url }}">
+      <span class="simbolo" role="img" aria-label="{% if d.fallos %}{% translate 'No cuadra' %}{% else %}{% translate 'Por revisar' %}{% endif %}">{% if d.fallos or d.estado == "error" %}≠{% else %}?{% endif %}</span>
+      <span class="fila__main">
+        <span class="fila__nombre">{{ d.proveedor_nombre|default:d.nombre_archivo }}</span>
+        <span class="fila__sub">{% if d.estado == "error" %}{% translate "No se pudo leer" %}{% else %}{{ d.get_tipo_display }} <span class="mono">{{ d.numero }}</span>{% endif %}</span>
+      </span>
+      <span class="fila__lado"><span class="fila__importe">{% if d.total is not None %}{{ d.total|eur }}{% else %}—{% endif %}</span><span class="pill">{% if d.fallos %}{% translate "No cuadra" %}{% elif d.estado == "error" %}{% translate "Error" %}{% else %}{% translate "Por revisar" %}{% endif %}</span></span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if c.veredictos %}
+<section class="section" aria-labelledby="t-pagos">
+  <div class="cabecera-lista"><h2 id="t-pagos">{% translate "Pagos" %}</h2><span class="muted num">{{ c.veredictos|length }}</span></div>
+  <div class="lista lista--junta">
+    {% for v in c.veredictos %}
+    <a class="fila is-{{ v.estilo }}" href="{% url 'bar:pagos' %}">
+      <span class="simbolo" role="img" aria-label="{{ v.etiqueta }}">{{ v.simbolo }}</span>
+      <span class="fila__main"><span class="fila__nombre">{{ v.proveedor|default:v.movimiento.concepto }}</span><span class="fila__sub mono">{{ v.movimiento.fecha|date:"j M" }}</span></span>
+      <span class="fila__lado"><span class="fila__importe">{{ v.movimiento.importe|eur }}</span><span class="pill">{{ v.etiqueta }}</span></span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if not c.docs and not c.veredictos %}
+<section class="section vacio">
   <p>{% translate "Todo en orden este mes. Sube tus albaranes cuando los recibas." %}</p>
   <a class="btn btn--primary" href="{% url 'bar:subir' %}">{% translate "Subir documento" %}</a>
-</div>
-
-<div id="rev-contenido" {% if not grupos %}hidden{% endif %}>
-  <p class="demo-flag">{% translate "Datos de ejemplo: lo que hagas aquí no se guarda." %}</p>
-  <section class="section" aria-labelledby="t-total">
-    <div class="total-rojo is-diff"><p class="figure__label" id="t-total">{% translate "Por reclamar" %}</p><p class="total-rojo__num" id="rev-total">{{ cifras.por_reclamar|eur }}</p></div>
-  </section>
-  <section class="section">
-    <div class="lista lista--junta" id="rev-lista">
-      {% for g in grupos %}
-      <div class="desliza" data-fila="{{ g.id }}" data-centimos="{{ g.diferencia|centimos }}">
-        <div class="desliza__fondo" aria-hidden="true">= {% translate "Revisado" %}</div>
-        <a class="fila fila--diff desliza__fg is-{{ g.estado }}" href="{% url 'bar:grupo' g.id %}" data-grupo="{{ g.id }}">
-          <span class="simbolo" role="img" aria-label="{{ g.estado_texto }}">{{ g.simbolo }}</span>
-          <span class="fila__main"><span class="fila__nombre">{{ g.proveedor }}</span><span class="fila__sub mono">{{ g.albaran.numero }} · {{ g.factura.numero }}</span></span>
-          <span class="fila__importe">{{ g.etiqueta }}</span>
-        </a>
-      </div>
-      {% endfor %}
-    </div>
-    <p class="muted" style="margin-top:var(--s-group)">{% translate "Desliza a la izquierda para marcar como revisado." %}</p>
-  </section>
-</div>
-{% include "bar/_hoja.html" %}
+</section>
+{% endif %}
 {% endblock %}

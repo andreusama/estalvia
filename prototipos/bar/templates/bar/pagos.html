@@ -1,0 +1,70 @@
+{% extends "bar/base.html" %}{% load i18n bar_extras %}
+{% block title %}{% translate "Pagos" %} · Estalvia{% endblock %}
+{% block content %}
+<header class="appbar">
+  <div><p class="eyebrow">{% translate "Banco" %}</p><h1>{% translate "Pagos" %}</h1></div>
+  <a class="btn btn--secondary" href="{% url 'bar:formato_banco' %}">{% translate "Formato" %}</a>
+</header>
+
+{% if mensaje %}<p class="msg msg--ok" role="status" data-aviso="{{ mensaje }}">= {{ mensaje }}</p>{% endif %}
+{% if resumen %}<p class="msg msg--ok" role="status">= {% blocktranslate with n=resumen.nuevos r=resumen.repetidos %}Extracto leído: {{ n }} movimientos nuevos, {{ r }} que ya estaban.{% endblocktranslate %}</p>{% endif %}
+{% for e in errores_extracto %}<p class="msg" role="alert" style="margin-bottom:var(--s-near)"><span aria-hidden="true">≠</span> {{ e }}</p>{% endfor %}
+
+<section class="section" aria-labelledby="t-extracto">
+  <h2 id="t-extracto">{% translate "Extracto del banco" %}</h2>
+  <form class="group" method="post" action="{% url 'bar:importar_extracto' %}" enctype="multipart/form-data" style="margin-top:var(--s-near)">
+    {% csrf_token %}
+    <label class="etiqueta" for="extracto">{% translate "Fichero CSV" %}</label>
+    <input class="field" id="extracto" name="extracto" type="file" accept=".csv,.txt,text/csv,text/plain" required>
+    <p class="group__note">{% translate "Descárgalo en la web de tu banco y súbelo aquí. Se lee con reglas, sin IA, y si lo subes dos veces no se duplica nada. No guardamos claves del banco." %}</p>
+    <p class="group__note muted">{% blocktranslate with n=n_movimientos %}Movimientos guardados: {{ n }}.{% endblocktranslate %}{% if perfil.cuenta_final %} {% translate "Cuenta" %} ···· {{ perfil.cuenta_final }}.{% endif %}</p>
+    <div class="group__actions"><button class="btn btn--primary btn--block" type="submit">{% translate "Importar extracto" %}</button></div>
+  </form>
+</section>
+
+{% if propuestas %}
+<section class="section" aria-labelledby="t-prop">
+  <div class="cabecera-lista"><h2 id="t-prop">{% translate "Por confirmar" %}</h2><span class="muted num">{{ propuestas|length }}</span></div>
+  <div class="lista">{% for v in propuestas %}{% include "bar/_pago_card.html" %}{% endfor %}</div>
+</section>
+{% endif %}
+
+{% if avisos %}
+<section class="section" aria-labelledby="t-avisos">
+  <div class="cabecera-lista"><h2 id="t-avisos">{% translate "Avisos" %}</h2><span class="muted num">{{ avisos|length }}</span></div>
+  <div class="lista">{% for v in avisos %}{% include "bar/_pago_card.html" %}{% endfor %}</div>
+</section>
+{% endif %}
+
+<section class="section" aria-labelledby="t-pend">
+  <div class="cabecera-lista"><h2 id="t-pend">{% translate "Facturas sin pagar" %}</h2><span class="muted num">{{ sin_pagar|length }}</span></div>
+  {% if sin_pagar %}
+  <div class="lista">
+    {% for f in sin_pagar %}
+    <div class="group is-{% if f.vencida %}diff{% else %}wait{% endif %}">
+      <div class="group__head"><span class="group__name">{{ f.proveedor_nombre|default:f.nombre_archivo }}</span><span class="pill">{% if f.vencida %}{% translate "Vencida" %}{% else %}{% translate "Pendiente" %}{% endif %}</span></div>
+      <div class="doc"><span class="doc__kind">{% translate "Factura" %} <span class="mono">{{ f.numero|default:"—" }}</span></span><span class="doc__amount">{{ f.pendiente|eur }}</span></div>
+      <p class="group__note{% if f.vencida %} nota-roja{% endif %}">{% if f.vencimiento %}{% translate "Vence el" %} {{ f.vencimiento|date:"j M Y" }}.{% else %}{% translate "Sin fecha de vencimiento." %}{% endif %}{% if f.pagado %} {% translate "Pagado ya:" %} {{ f.pagado|eur }}.{% endif %}{% if f.estado != "revisado" %} {% translate "Provisional: aún no la has revisado." %}{% endif %}</p>
+      <form method="post" action="{% url 'bar:pago_efectivo' f.pk %}">{% csrf_token %}<button class="btn btn--secondary btn--block" type="submit">{% translate "Pagada en efectivo" %}</button></form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">{% translate "No hay facturas pendientes de pago. Cuando subas una factura aparecerá aquí." %}</p>
+  {% endif %}
+</section>
+
+{% if pagadas %}
+<section class="section" aria-labelledby="t-pagadas">
+  <div class="cabecera-lista"><h2 id="t-pagadas">{% translate "Pagadas" %}</h2><span class="muted num">{{ pagadas|length }}</span></div>
+  <div class="lista lista--junta">
+    {% for f in pagadas %}
+    <a class="fila is-ok" href="{% url 'bar:documento' f.pk %}">
+      <span class="fila__main"><span class="fila__nombre">{{ f.proveedor_nombre|default:f.nombre_archivo }}</span><span class="fila__sub"><span class="mono">{{ f.numero }}</span> · {% for p in f.pagos.all %}{{ p.get_metodo_display }}{% if not forloop.last %}, {% endif %}{% endfor %}</span></span>
+      <span class="fila__lado"><span class="fila__importe">{{ f.total|eur }}</span><span class="pill">{% translate "Pagada" %}</span></span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

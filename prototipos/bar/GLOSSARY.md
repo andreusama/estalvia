@@ -105,3 +105,15 @@ _Avoid_: cobro, abono
 **Pendiente**:
 Factura sin pago confirmado.
 _Avoid_: impagada, por pagar
+
+**Perfil del banco**:
+Cómo se lee el extracto de un banco: separador, formato de fecha y de números y nombre de cada columna. Sin claves ni número de cuenta completo.
+_Avoid_: plantilla, configuración
+
+**Pago propuesto**:
+Movimiento cuyo importe coincide al céntimo con una factura y que una persona puede confirmar. Lo parecido nunca se propone: se enseña como pista.
+_Avoid_: pago automático, emparejado
+
+**Cobro doble**:
+Segundo movimiento idéntico para una factura que ya tiene pago o ya está propuesta a otro movimiento. Solo se avisa.
+_Avoid_: duplicado de pago

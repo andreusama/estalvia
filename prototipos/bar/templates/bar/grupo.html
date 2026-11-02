@@ -1,7 +1,0 @@
-{% extends "bar/base.html" %}{% load i18n %}
-{% block title %}{{ g.proveedor }} · Estalvia{% endblock %}
-{% block content %}
-<p class="demo-flag">{% translate "Datos de ejemplo" %}</p>
-<section class="section">{% include "bar/_grupo_detalle.html" with g=g en_hoja=False %}</section>
-<a class="btn btn--secondary btn--block" href="{% url 'bar:inicio' %}">{% translate "Volver al resumen" %}</a>
-{% endblock %}

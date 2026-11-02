@@ -35,3 +35,8 @@ Variables de entorno:
 DEBUG=1 .venv/bin/python manage.py runserver                 # y entra en /bar/
 ```
 Los originales y las lecturas se guardan en la base de datos (`db.sqlite3` en local, ignorada por git). Los tests no llaman a la IA.
+
+### Bar: pagos con el extracto del banco
+En `/bar/pagos/` se sube el CSV del banco (se lee con reglas, sin IA). Antes de la primera vez, abre «Formato» y ajusta los
+nombres de columna, el formato de fecha y los separadores a tu banco. Los extractos reales no van a git (`extracto*.csv`
+está en `.gitignore`); los tests usan extractos inventados.

@@ -126,3 +126,79 @@ class Evento(models.Model):
 
     class Meta:
         ordering = ["cuando", "id"]
+
+
+class PerfilImportacion(models.Model):
+    """Cómo leer el extracto de un banco: separador, formato de fecha y de números, y qué columna es cada cosa.
+
+    No guarda credenciales del banco ni el número de cuenta completo: solo las últimas cifras, para reconocerla.
+    """
+
+    SEPARADORES = [("auto", "Detectarlo solo"), (";", "Punto y coma ( ; )"), (",", "Coma ( , )"), ("\t", "Tabulador")]
+    FORMATOS_FECHA = [
+        ("%d/%m/%Y", "31/12/2026"),
+        ("%d-%m-%Y", "31-12-2026"),
+        ("%Y-%m-%d", "2026-12-31"),
+        ("%d/%m/%y", "31/12/26"),
+        ("%d.%m.%Y", "31.12.2026"),
+    ]
+    MILES = [("", "Ninguno"), (".", "Punto ( 1.240,00 )"), (",", "Coma ( 1,240.00 )"), (" ", "Espacio ( 1 240,00 )")]
+    DECIMALES = [(",", "Coma ( 1240,00 )"), (".", "Punto ( 1240.00 )")]
+
+    nombre = models.CharField(max_length=80, default="Mi banco")
+    cuenta_final = models.CharField(max_length=4, blank=True)  # solo las últimas cifras
+    separador = models.CharField(max_length=4, choices=SEPARADORES, default="auto")
+    formato_fecha = models.CharField(max_length=10, choices=FORMATOS_FECHA, default="%d/%m/%Y")
+    sep_miles = models.CharField(max_length=1, choices=MILES, default=".", blank=True)
+    sep_decimal = models.CharField(max_length=1, choices=DECIMALES, default=",")
+    col_fecha = models.CharField(max_length=80, default="Fecha")
+    col_concepto = models.CharField(max_length=80, default="Concepto")
+    col_concepto_aux = models.CharField(max_length=80, blank=True)  # si la principal está vacía
+    col_importe = models.CharField(max_length=80, default="Importe")  # con signo: gastos negativos
+    col_abono = models.CharField(max_length=80, blank=True)  # si el banco separa cargos (col_importe) y abonos
+    col_saldo = models.CharField(max_length=80, blank=True, default="Saldo")
+
+    def __str__(self):
+        return self.nombre
+
+    @classmethod
+    def por_defecto(cls):
+        return cls.objects.first() or cls.objects.create()
+
+
+class Movimiento(models.Model):
+    """Una línea del extracto. Gasto = negativo, ingreso = positivo. Nunca se borra."""
+
+    perfil = models.ForeignKey(PerfilImportacion, on_delete=models.PROTECT, related_name="movimientos")
+    fecha = models.DateField(db_index=True)
+    concepto = models.CharField(max_length=400)
+    importe = models.DecimalField(max_digits=12, decimal_places=2)
+    saldo = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    huella = models.CharField(max_length=64, unique=True)  # evita duplicados al reimportar el mismo extracto
+    fichero = models.CharField(max_length=255, blank=True)
+    fila = models.PositiveIntegerField(default=0)
+    importado_en = models.DateTimeField(auto_now_add=True)
+    ignorado_en = models.DateTimeField(null=True, blank=True)  # «ya lo he mirado»: se oculta de los avisos
+
+    class Meta:
+        ordering = ["fecha", "id"]
+
+    def __str__(self):
+        return f"{self.fecha} {self.concepto} {self.importe}"
+
+
+class Pago(models.Model):
+    """Una factura pagada, por un movimiento bancario confirmado o a mano en efectivo. Nunca se borra."""
+
+    class Metodo(models.TextChoices):
+        BANCO = "banco", "Banco"
+        EFECTIVO = "efectivo", "Efectivo"
+
+    documento = models.ForeignKey(Documento, on_delete=models.PROTECT, related_name="pagos")
+    movimiento = models.OneToOneField(Movimiento, null=True, blank=True, on_delete=models.PROTECT, related_name="pago")
+    importe = models.DecimalField(max_digits=12, decimal_places=2)
+    metodo = models.CharField(max_length=10, choices=Metodo.choices)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["creado_en", "id"]
