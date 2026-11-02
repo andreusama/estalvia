@@ -31,12 +31,12 @@ p { margin: 0; max-width: 65ch; }
 .group { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: var(--s-near); align-content: start; }
 .group__head { display: flex; justify-content: space-between; align-items: center; gap: var(--s-near); flex-wrap: wrap; }
 .group__name { font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.02em; }
-.group__note { color: var(--muted); font-size: 0.9375rem; margin-top: var(--s-near); }
+.group__note { color: var(--muted); font-size: 0.9375rem; }
 .group__note strong { color: var(--ink); font-weight: 600; }
-.group__actions { display: flex; gap: var(--s-near); margin-top: var(--s-near); }
+.group__actions { display: flex; gap: var(--s-near); }
 
 /* Píldora de estado */
-.pill { display: inline-flex; align-items: center; gap: 8px; padding: 3px 12px 3px 10px; border-radius: 999px; background: var(--st-soft); color: var(--st-ink); font-size: 0.8125rem; font-weight: 600; }
+.pill { display: inline-flex; align-items: center; gap: var(--s-near); padding: 3px 12px 3px 10px; border-radius: 999px; background: var(--st-soft); color: var(--st-ink); font-size: 0.8125rem; font-weight: 600; }
 .pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--st); }
 
 /* Par de documentos */
@@ -54,7 +54,7 @@ p { margin: 0; max-width: 65ch; }
 .summary__bar > span { border-radius: 4px; background: var(--st); min-width: 6px; }
 .summary__figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s-group); margin-top: var(--s-group); }
 .figure__num { display: block; font: 500 clamp(2rem, 1.4rem + 2.5vw, 3rem)/1.1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); }
-.figure__label { display: inline-flex; align-items: center; gap: 8px; margin-top: var(--s-near); color: var(--muted); font-size: 0.9375rem; }
+.figure__label { display: inline-flex; align-items: center; gap: var(--s-near); margin-top: var(--s-near); color: var(--muted); font-size: 0.9375rem; }
 .figure__label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--st); }
 
 /* Botones */

@@ -9,7 +9,7 @@
     {% for app in apps %}
     <article class="group">
       <h2 class="group__name">{{ app.nombre }}</h2>
-      <p class="group__note" style="margin-top:0">{{ app.descripcion }}</p>
+      <p class="group__note">{{ app.descripcion }}</p>
       <div class="group__actions"><a class="btn btn--primary" href="{{ app.url }}">{% translate "Abrir" %}</a></div>
     </article>
     {% endfor %}

@@ -5,7 +5,6 @@ data/
 facturas/
 .venv/
 .git/
-tests/
 .hypothesis/
 .pytest_cache/
 .ruff_cache/

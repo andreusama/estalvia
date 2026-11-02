@@ -1,8 +1,5 @@
 #!/usr/bin/env python
-"""Plataforma Estalvia (la que se despliega en Vercel): `python manage.py runserver`.
-
-El copiloto energético, que solo corre en local, se arranca con `python manage_energia.py` (docs/adr/0001).
-"""
+"""Plataforma Estalvia (la que se despliega en Vercel): `python manage.py runserver`."""
 
 import os
 import sys

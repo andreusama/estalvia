@@ -1,4 +1,4 @@
-"""Arranque de Django para los tests de la plataforma (proceso aparte del de los tests del copiloto energético)."""
+"""Arranque de Django para los tests de la plataforma y de sus prototipos."""
 
 import os
 

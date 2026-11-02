@@ -33,7 +33,7 @@ if len(SECRET_KEY) < 32:
     if DEBUG:
         SECRET_KEY = "solo-para-desarrollo-local-" + "x" * 16
     else:
-        raise ImproperlyConfigured("SECRET_KEY (o ESTALVIA_WEB_SECRET) falta o es demasiado corta (mínimo 32 caracteres)")
+        raise ImproperlyConfigured("SECRET_KEY (o ESTALVIA_WEB_SECRET) falta o tiene menos de 32 caracteres")
 
 # Contraseña única de la plataforma (usuarios reales vendrán después). Vacía = nadie entra.
 ESTALVIA_PASSWORD = os.environ.get("ESTALVIA_PASSWORD") or os.environ.get("ESTALVIA_WEB_PASSWORD", "")
