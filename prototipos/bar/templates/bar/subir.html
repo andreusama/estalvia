@@ -1,0 +1,21 @@
+{% extends "plataforma/base.html" %}{% load i18n static %}
+{% block title %}{% translate "Subir documentos" %} · Estalvia{% endblock %}
+{% block content %}
+<p><a class="muted" href="{% url 'bar:inicio' %}">← {% translate "Todos los documentos" %}</a></p>
+<header class="section" style="margin-top:var(--s-group)">
+  <h1>{% translate "Subir documentos" %}</h1>
+  <p class="muted" style="margin-top:var(--s-near)">{% translate "Haz una foto del albarán o la factura, o elige archivos del móvil o del ordenador. Puedes subir varios a la vez." %}</p>
+</header>
+<section class="section narrow-wide">
+  <form id="form-subir" class="group" method="post" action="{% url 'bar:subir' %}" enctype="multipart/form-data" data-max-mb="{{ max_mb }}">
+    {% csrf_token %}
+    <label class="eyebrow" for="archivo">{% translate "Fotos o PDF" %}</label>
+    <input class="field" id="archivo" name="archivo" type="file" multiple required accept="image/*,application/pdf">
+    <p class="group__note">{% blocktranslate %}Cada archivo, hasta {{ max_mb }} MB. Las fotos se reducen solas antes de subirlas.{% endblocktranslate %}</p>
+    {% for e in errores %}<p class="msg" role="alert"><span aria-hidden="true">≠</span> {{ e.nombre }}: {{ e.error }}</p>{% endfor %}
+    <ul id="estado-subida" class="subida" aria-live="polite"></ul>
+    <div class="group__actions"><button class="btn btn--primary" type="submit">{% translate "Subir y leer" %}</button></div>
+  </form>
+</section>
+<script src="{% static 'bar/js/subir.js' %}" defer></script>
+{% endblock %}

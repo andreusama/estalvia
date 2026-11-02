@@ -16,7 +16,22 @@ DEBUG=1 .venv/bin/python manage.py runserver    # http://localhost:8000
 
 ## Vercel
 
-Root Directory `.`; Vercel detecta `manage.py`. Variables de entorno obligatorias: `SECRET_KEY` o `ESTALVIA_WEB_SECRET` (32+ caracteres)
-y `ESTALVIA_PASSWORD` o `ESTALVIA_WEB_PASSWORD`. Sin la primera el despliegue falla a propósito; sin la segunda nadie puede entrar.
-Para un dominio propio, añadir `ALLOWED_HOSTS` (separado por comas). Pendiente: PostgreSQL, Blob y `ANTHROPIC_API_KEY`
-llegan con los modelos y la extracción.
+Root Directory `.`; Vercel detecta `manage.py`, ejecuta `build.py` (migra si hay `DATABASE_URL`) y sirve la función con hasta 120 s (`vercel.json`).
+Variables de entorno:
+
+| Variable | Para qué |
+|---|---|
+| `SECRET_KEY` o `ESTALVIA_WEB_SECRET` | Django, 32+ caracteres. Sin ella el despliegue falla a propósito. |
+| `ESTALVIA_PASSWORD` o `ESTALVIA_WEB_PASSWORD` | Contraseña única. Sin ella nadie puede entrar. |
+| `DATABASE_URL` | PostgreSQL (Neon u otro; la integración de Vercel Marketplace la crea). Sin ella el Bar avisa de que falta la base de datos. |
+| `ANTHROPIC_API_KEY` | Lectura de documentos con la IA (Sonnet). Sin ella los documentos quedan «No se pudo leer». |
+| `ALLOWED_HOSTS` | Solo si usas dominio propio (separado por comas). |
+
+## Bar: probar con documentos reales
+
+```
+.venv/bin/python manage.py migrate
+.venv/bin/python manage.py procesar_carpeta ruta/a/fotos    # sube y lee una carpeta (o un archivo) sin pasar por la web
+DEBUG=1 .venv/bin/python manage.py runserver                 # y entra en /bar/
+```
+Los originales y las lecturas se guardan en la base de datos (`db.sqlite3` en local, ignorada por git). Los tests no llaman a la IA.

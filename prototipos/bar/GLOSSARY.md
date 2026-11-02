@@ -46,6 +46,14 @@ _Avoid_: inflación, variación
 
 ### Revisión y confianza
 
+**Lectura**:
+Paso en que la IA transcribe un documento: copia lo impreso, no calcula nada y deja en blanco o marca como dudoso lo que no ve con seguridad.
+_Avoid_: extracción, OCR, análisis
+
+**Comprobación**:
+Regla escrita en código que valida las cifras de un documento sin intervención de la IA y sin tolerancia: las líneas suman la base, base más IVA es el total.
+_Avoid_: validación, verificación
+
 **Revisado**:
 Estado de un documento cuyos datos ha comprobado y corregido un humano. Ninguna cifra se da por buena sin pasar por aquí.
 _Avoid_: validado, aprobado

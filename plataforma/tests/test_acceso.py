@@ -1,8 +1,9 @@
 """Acceso con contraseña única: cerrado por defecto, sin sesión no se ve nada."""
 
+import pytest
 from django.test import Client, override_settings
 
-from plataforma._pruebas import CLAVE
+from plataforma.settings_tests import CLAVE
 
 
 def cliente():
@@ -22,6 +23,7 @@ def test_contrasena_incorrecta_no_entra():
     assert c.get("/bar/").status_code == 302
 
 
+@pytest.mark.django_db
 def test_contrasena_correcta_entra_y_vuelve_a_donde_iba():
     c = cliente()
     r = c.post("/entrar/", {"password": CLAVE, "next": "/bar/"})

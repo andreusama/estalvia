@@ -1,0 +1,25 @@
+{% extends "plataforma/base.html" %}{% load i18n static %}
+{% block title %}{{ doc.nombre_archivo }} · Estalvia{% endblock %}
+{% block content %}
+<p><a class="muted" href="{% url 'bar:inicio' %}">← {% translate "Todos los documentos" %}</a></p>
+<header class="section" style="margin-top:var(--s-group)">
+  <p class="eyebrow">{{ doc.get_estado_display }}</p>
+  <h1 style="margin-top:var(--s-near)">{{ doc.nombre_archivo }}</h1>
+</header>
+<section class="section narrow-wide">
+  <div class="group is-{{ estilo }}">
+    <div class="group__head"><span class="group__name">{% if doc.estado == "error" %}{% translate "No se pudo leer" %}{% else %}{% translate "Leyendo el documento…" %}{% endif %}</span><span class="pill">{{ doc.get_estado_display }}</span></div>
+    {% if doc.estado == "error" %}
+      <p class="msg" role="alert"><span aria-hidden="true">≠</span> {{ doc.error_texto }}</p>
+    {% else %}
+      <p class="group__note">{% translate "La IA está leyendo el documento. Suele tardar entre 10 y 30 segundos; no cierres esta página." %}</p>
+    {% endif %}
+    <figure class="visor"><a href="{% url 'bar:archivo' doc.pk %}" target="_blank" rel="noopener"><img src="{% url 'bar:archivo' doc.pk %}" alt="{{ doc.nombre_archivo }}" class="visor__img"></a></figure>
+    <form method="post" action="{% url 'bar:leer' doc.pk %}" id="form-leer" data-autoleer="{% if doc.estado == 'pendiente' %}1{% endif %}">
+      {% csrf_token %}
+      <div class="group__actions"><button class="btn btn--primary" type="submit">{% if doc.estado == "error" %}{% translate "Intentar de nuevo" %}{% else %}{% translate "Leer ahora" %}{% endif %}</button></div>
+    </form>
+  </div>
+</section>
+<script src="{% static 'bar/js/leer.js' %}" defer></script>
+{% endblock %}

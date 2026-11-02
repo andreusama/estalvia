@@ -1,5 +1,5 @@
 ---
-status: partly superseded by docs/adr/0001-una-plataforma-un-proyecto-vercel.md (el proyecto de Vercel es el de la plataforma, no uno propio del bar)
+status: partly superseded by docs/adr/0001-una-plataforma-un-proyecto-vercel.md (el proyecto de Vercel es el de la plataforma) and by 0003-originales-en-la-base-de-datos.md (los originales van en PostgreSQL, no en Blob)
 ---
 
 # Despliegue en Vercel con PostgreSQL y almacenamiento de objetos

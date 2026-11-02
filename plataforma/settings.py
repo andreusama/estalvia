@@ -5,6 +5,7 @@ firmadas en la cookie. Si falta SECRET_KEY no arranca; si falta la contraseña, 
 """
 
 import os
+import urllib.parse
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -70,7 +71,35 @@ TEMPLATES = [
         },
     }
 ]
-DATABASES: dict = {}  # PostgreSQL llegará con los modelos (docs/adr/0002 del bar)
+
+
+def _base_de_datos() -> dict:
+    """PostgreSQL con DATABASE_URL (Vercel, Neon); SQLite en local; en Vercel sin URL, sin base de datos."""
+    url = os.environ.get("DATABASE_URL", "")
+    if url:
+        u = urllib.parse.urlparse(url)
+        opciones = {
+            k: v for k, v in urllib.parse.parse_qsl(u.query) if k in ("sslmode", "channel_binding", "connect_timeout")
+        }
+        return {
+            "default": {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": u.path.lstrip("/"),
+                "USER": urllib.parse.unquote(u.username or ""),
+                "PASSWORD": urllib.parse.unquote(u.password or ""),
+                "HOST": u.hostname,
+                "PORT": u.port or 5432,
+                "OPTIONS": opciones,
+                "CONN_MAX_AGE": 0,
+                "DISABLE_SERVER_SIDE_CURSORS": True,
+            }
+        }
+    if EN_VERCEL:
+        return {}
+    return {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
+
+
+DATABASES = _base_de_datos()
 
 SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = EN_VERCEL

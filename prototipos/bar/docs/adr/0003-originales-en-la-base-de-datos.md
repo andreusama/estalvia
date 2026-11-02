@@ -1,0 +1,3 @@
+# Los archivos originales se guardan en la base de datos, no en un almacén de objetos
+
+Vercel rechaza cuerpos de petición de más de 4,5 MB y no tiene disco, así que el ADR 0002 preveía un almacén Blob privado. Para el prototipo guardamos el archivo en la base de datos (`BinaryField`): un solo sitio para datos y originales, el mismo código en local y en Vercel, y sin servicio extra que configurar. Las fotos se reducen en el navegador (lado máximo 2200 px, JPEG) antes de subirlas, uno a uno, y cada archivo admite hasta 4 MB; el original de máxima resolución sigue en el móvil del dueño. Cuando crezca el volumen (los planes gratuitos de PostgreSQL rondan los 0,5 GB) se mueve a almacenamiento de objetos sin cambiar el modelo de documento.

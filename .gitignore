@@ -15,3 +15,7 @@ tests/golden/private/
 staticfiles/
 .env.local
 .vercel
+
+# Base de datos local y archivos privados del Bar
+db.sqlite3
+prototipos/bar/data/private/
