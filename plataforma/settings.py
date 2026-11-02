@@ -81,6 +81,7 @@ def _base_de_datos() -> dict:
         opciones = {
             k: v for k, v in urllib.parse.parse_qsl(u.query) if k in ("sslmode", "channel_binding", "connect_timeout")
         }
+        opciones["prepare_threshold"] = None  # los pooladores (Supabase, Neon) no admiten consultas preparadas
         return {
             "default": {
                 "ENGINE": "django.db.backends.postgresql",
