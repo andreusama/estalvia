@@ -1,0 +1,59 @@
+{% extends "bar/base.html" %}{% load i18n static bar_extras %}
+{% block title %}Birròmetro · Estalvia{% endblock %}
+{% block content %}
+<header class="appbar appbar--atras">
+  <a class="icono" href="{% url 'bar:inicio' %}" aria-label="{% translate 'Volver al Resumen' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></a>
+  <div><p class="eyebrow">{% translate "Cerveza de barril" %}</p><h1>Birròmetro</h1></div>
+</header>
+{% if guardado %}<p class="msg msg--ok" role="status" data-aviso="{% translate 'Barril guardado.' %}">= {% translate "Barril guardado." %}</p>{% endif %}
+
+<form id="birrometro" class="section lista" method="post" action="{% url 'bar:birrometro' %}" novalidate>
+  {% csrf_token %}
+  <div class="campo">
+    <label class="etiqueta" for="id_marca">{% translate "Marca" %}</label>
+    <input class="field" id="id_marca" name="marca" type="text" list="marcas" value="{{ form.marca.value|default:'' }}" autocomplete="off" required>
+    <datalist id="marcas">{% for m in marcas %}<option value="{{ m }}">{% endfor %}</datalist>
+  </div>
+  <div class="campo"><label class="etiqueta" for="id_litros">{% translate "Litros del barril" %}</label>{{ form.litros }}</div>
+  <div class="campo"><label class="etiqueta" for="id_precio">{% translate "Precio del barril (sin IVA, en €)" %}</label>{{ form.precio }}</div>
+  <div class="campo"><label class="etiqueta" for="id_fecha">{% translate "Fecha de compra" %}</label>{{ form.fecha }}</div>
+
+  <div class="campo">
+    <label class="etiqueta" for="id_precio_venta">{% translate "Precio al que lo vendes" %}: <output id="precio-venta-texto" class="mono">{{ slider }}</output> €</label>
+    <input class="deslizador" id="id_precio_venta" name="precio_venta" type="range" min="1" max="6" step="0.05" value="{{ slider }}">
+    <p class="group__note muted">{% translate "Por ración, con IVA. Mueve el deslizador y mira cómo cambia el beneficio." %}</p>
+  </div>
+
+  <div id="resultado" aria-live="polite">{% include "bar/_birrometro_resultado.html" %}</div>
+
+  <details class="ajustes">
+    <summary>{% translate "Ajustes: qué sirves, merma e IVA" %}</summary>
+    <div class="lista" style="margin-top:var(--s-group)">
+      <div class="campo"><label class="etiqueta" for="id_servicio_cl">{% translate "Qué sirves" %}</label>{{ form.servicio_cl }}</div>
+      <div class="campo"><label class="etiqueta" for="id_merma">{% translate "Merma (%)" %}</label>{{ form.merma }}<p class="group__note muted">{% translate "Lo que se pierde en espuma, derrames y el final del barril. Suele estar entre el 5 y el 10 %." %}</p></div>
+      <div class="campo"><label class="etiqueta" for="id_iva_venta">{% translate "IVA de lo que vendes" %}</label>{{ form.iva_venta }}</div>
+    </div>
+  </details>
+
+  <button class="btn btn--primary btn--block" type="submit">{% translate "Guardar este barril" %}</button>
+  <button class="btn btn--secondary btn--block" type="submit" formmethod="get" id="calcular">{% translate "Calcular" %}</button>
+  <p class="group__note muted">{% translate "El beneficio compara lo que entra sin IVA con lo que costó el barril. No cuenta personal, alquiler ni luz." %}</p>
+</form>
+
+<section class="section" aria-labelledby="t-barriles">
+  <div class="cabecera-lista"><h2 id="t-barriles">{% translate "Tus barriles" %}</h2>{% if historial %}<span class="muted num">{{ historial|length }}</span>{% endif %}</div>
+  {% if historial %}
+  <div class="lista lista--junta">
+    {% for h in historial %}
+    <div class="fila is-{% if h.r.gana %}ok{% else %}diff{% endif %}">
+      <span class="fila__main"><span class="fila__nombre">{{ h.b.marca }} · {{ h.b.litros|floatformat:"-2" }} L</span><span class="fila__sub">{{ h.b.fecha|date:"j M Y" }} · {{ h.b.precio|eur }}{% if h.cambio is not None %} · {% if h.sube %}≠{% else %}?{% endif %} {{ h.cambio|floatformat:1 }} % {% translate "por litro" %}{% endif %}</span></span>
+      <span class="fila__lado"><span class="fila__importe">{{ h.r.beneficio|eur }}</span><span class="pill">{% if h.r.gana %}{% translate "Ganas" %}{% else %}{% translate "Pierdes" %}{% endif %}</span></span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">{% translate "Aún no has guardado ningún barril. Al guardarlos podrás ver si un proveedor te sube el precio." %}</p>
+  {% endif %}
+</section>
+<script src="{% static 'bar/js/birrometro.js' %}" defer></script>
+{% endblock %}

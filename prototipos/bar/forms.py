@@ -3,6 +3,7 @@ from decimal import Decimal
 from django import forms
 from django.forms import inlineformset_factory
 
+from .birrometro import IVAS, SERVICIOS
 from .models import DesgloseIva, Documento, Linea, PerfilImportacion, ReferenciaAlbaran
 from .numeros import a_decimal, num
 
@@ -159,3 +160,39 @@ class PerfilImportacionForm(forms.ModelForm):
         if datos.get("sep_miles") and datos.get("sep_miles") == datos.get("sep_decimal"):
             raise forms.ValidationError("El separador de miles y el de decimales no pueden ser el mismo.")
         return datos
+
+
+class BarrilForm(forms.Form):
+    """Los datos del Birròmetro. Valida y convierte; las cuentas las hace `birrometro.calcular`."""
+
+    marca = forms.CharField(max_length=120, label="Marca")
+    litros = ImporteField(required=True, label="Litros del barril")
+    fecha = forms.DateField(label="Fecha de compra", widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
+    precio = ImporteField(required=True, label="Precio del barril (sin IVA)")
+    precio_venta = ImporteField(required=True, label="Precio de venta")
+    servicio_cl = forms.TypedChoiceField(choices=SERVICIOS, coerce=int, label="Qué sirves")
+    merma = ImporteField(required=True, label="Merma (%)")
+    iva_venta = forms.TypedChoiceField(choices=IVAS, coerce=Decimal, label="IVA de lo que vendes")
+
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        _estilo(self)
+        self.fields["precio_venta"].widget.attrs.pop("class", None)
+
+    def _entre(self, nombre, minimo, maximo, texto):
+        valor = self.cleaned_data.get(nombre)
+        if valor is not None and not (minimo <= valor <= maximo):
+            raise forms.ValidationError(texto)
+        return valor
+
+    def clean_litros(self):
+        return self._entre("litros", Decimal("1"), Decimal("200"), "Un barril tiene entre 1 y 200 litros.")
+
+    def clean_precio(self):
+        return self._entre("precio", Decimal("0.01"), Decimal("5000"), "Escribe lo que cuesta el barril, sin IVA.")
+
+    def clean_precio_venta(self):
+        return self._entre("precio_venta", Decimal("0.10"), Decimal("50"), "El precio de venta va de 0,10 a 50 €.")
+
+    def clean_merma(self):
+        return self._entre("merma", Decimal("0"), Decimal("40"), "La merma va del 0 al 40 %.")

@@ -126,3 +126,9 @@
 .fila__main { flex: 1 1 130px; }
 .fila__nombre { overflow-wrap: break-word; }
 .fila__lado { margin-left: auto; }
+
+/* Birròmetro */
+.app .cifra { font: 500 2rem/1.2 var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.app .deslizador { width: 100%; min-height: 44px; accent-color: var(--green-ink); }
+.app .ajustes > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }
+.app select.field { appearance: auto; }

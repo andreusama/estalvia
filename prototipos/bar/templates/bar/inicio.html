@@ -32,6 +32,14 @@
   </a>
 </section>
 
+<section class="section" aria-labelledby="t-birra">
+  <h2 id="t-birra" class="visually-hidden">Birròmetro</h2>
+  <a class="fila is-wait" href="{% url 'bar:birrometro' %}">
+    <span class="fila__main"><span class="fila__nombre">Birròmetro</span><span class="fila__sub">{% translate "Cuánto ganas con cada barril de cerveza" %}</span></span>
+    <span class="fila__lado"><span class="pill">{% translate "Abrir" %}</span></span>
+  </a>
+</section>
+
 <section class="section" aria-labelledby="t-docs">
   <div class="cabecera-lista"><h2 id="t-docs">{% translate "Tus documentos" %}</h2>{% if docs %}<span class="muted num">{{ docs|length }}</span>{% endif %}</div>
   {% if docs %}

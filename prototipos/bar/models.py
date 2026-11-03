@@ -211,3 +211,25 @@ class Pago(models.Model):
 
     class Meta:
         ordering = ["creado_en", "id"]
+
+
+class Barril(models.Model):
+    """Un barril de cerveza comprado, con lo que se cobra por servicio. Sirve para el Birròmetro. Nunca se borra."""
+
+    propietario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    marca = models.CharField(max_length=120)
+    litros = models.DecimalField(max_digits=6, decimal_places=2)
+    fecha = models.DateField()  # fecha de compra
+    precio = models.DecimalField(max_digits=10, decimal_places=2)  # lo que cuesta el barril, sin IVA
+    precio_venta = models.DecimalField(max_digits=6, decimal_places=2)  # por servicio, con IVA
+    servicio_cl = models.PositiveSmallIntegerField(default=20)
+    merma = models.DecimalField(max_digits=4, decimal_places=1, default=8)  # % que se pierde en espuma y derrames
+    iva_venta = models.DecimalField(max_digits=4, decimal_places=1, default=10)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-fecha", "-id"]
+        verbose_name_plural = "barriles"
+
+    def __str__(self):
+        return f"{self.marca} {self.litros} L ({self.fecha})"
