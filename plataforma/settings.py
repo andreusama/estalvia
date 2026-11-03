@@ -37,7 +37,7 @@ if len(SECRET_KEY) < 32:
         raise ImproperlyConfigured("SECRET_KEY (o ESTALVIA_WEB_SECRET) falta o tiene menos de 32 caracteres")
 
 # Código de invitación para crear una cuenta en /registro/. Vacío = el registro está cerrado (solo `crear_usuario`).
-ESTALVIA_CODIGO_INVITACION = os.environ.get("ESTALVIA_CODIGO_INVITACION", "")
+ESTALVIA_CODIGO_INVITACION = os.environ.get("ESTALVIA_CODIGO_INVITACION", "").strip().strip("'\"").strip()
 
 ALLOWED_HOSTS = [".vercel.app", "localhost", "127.0.0.1"] + [
     h for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h

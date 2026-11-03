@@ -93,3 +93,12 @@ def test_registro_no_repite_nombre_de_usuario():
 def test_sin_codigo_configurado_el_registro_esta_cerrado():
     r = registrar(cliente())
     assert r.status_code == 403 and not get_user_model().objects.exists()
+
+
+def test_el_codigo_ignora_espacios_y_comillas_al_pegarlo_en_vercel(monkeypatch):
+    import importlib
+
+    from plataforma import settings
+
+    monkeypatch.setenv("ESTALVIA_CODIGO_INVITACION", f'  "{CODIGO}"\n')
+    assert importlib.reload(settings).ESTALVIA_CODIGO_INVITACION == CODIGO
