@@ -1,0 +1,9 @@
+{% extends "plataforma/base.html" %}{% load i18n %}
+{% block content %}
+<section class="section narrow-wide">
+  <h1>{% translate "Falta la base de datos" %}</h1>
+  <div class="group is-diff" style="margin-top:var(--s-group)">
+    <p class="msg" role="alert"><span aria-hidden="true">≠</span> {% if motivo %}{{ motivo }}{% else %}{% translate "Este despliegue no tiene base de datos. Añade DATABASE_URL (PostgreSQL) en las variables de entorno del proyecto y vuelve a desplegar." %}{% endif %}</p>
+  </div>
+</section>
+{% endblock %}

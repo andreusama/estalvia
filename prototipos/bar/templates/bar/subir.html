@@ -1,0 +1,26 @@
+{% extends "bar/base.html" %}{% load i18n static %}
+{% block title %}{% translate "Subir documento" %} · Estalvia{% endblock %}
+{% block mainclass %}app__main--libre{% endblock %}
+{% block tabs %}{% endblock %}
+{% block content %}
+<form id="form-subir" class="camara" method="post" action="{% url 'bar:subir' %}" enctype="multipart/form-data" data-max-mb="{{ max_mb }}" data-inicio="{% url 'bar:inicio' %}">
+  {% csrf_token %}
+  <header class="appbar"><h1>{% translate "Subir documento" %}</h1><a class="icono" href="{% url 'bar:inicio' %}" aria-label="{% translate 'Cerrar' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></a></header>
+  <div class="marco" aria-hidden="true"><i></i><i></i><i></i><i></i><div class="papel"><span></span><span></span><span></span><span></span><span></span></div></div>
+  <div class="camara__texto">
+    <p>{% translate "Haz una foto del documento" %}</p>
+    <p class="muted">{% blocktranslate %}Cada archivo, hasta {{ max_mb }} MB. Las fotos se reducen solas antes de subirlas.{% endblocktranslate %}</p>
+    {% for e in errores %}<p class="msg" role="alert"><span aria-hidden="true">≠</span> {{ e.nombre }}: {{ e.error }}</p>{% endfor %}
+    <ul id="estado-subida" class="subida" aria-live="polite"></ul>
+  </div>
+  <div class="mandos">
+    <label class="ctl"><input class="visually-hidden" type="file" name="archivo" accept="image/*" multiple>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="m5 18 5-5 3 3 2-2 4 4"/></svg><span>{% translate "Galería" %}</span></label>
+    <label class="ctl obturador"><input class="visually-hidden" type="file" name="archivo" accept="image/*" capture="environment"><span></span><span class="visually-hidden">{% translate "Hacer foto" %}</span></label>
+    <label class="ctl"><input class="visually-hidden" type="file" name="archivo" accept="application/pdf" multiple>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v4h4"/></svg><span>PDF</span></label>
+  </div>
+  <noscript><button class="btn btn--primary btn--block" type="submit">{% translate "Subir" %}</button></noscript>
+</form>
+<script src="{% static 'bar/js/subir.js' %}" defer></script>
+{% endblock %}

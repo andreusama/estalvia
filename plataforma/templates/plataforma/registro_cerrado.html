@@ -1,0 +1,9 @@
+{% extends "plataforma/base.html" %}{% load i18n %}
+{% block title %}{% translate "Registro cerrado" %} · Estalvia{% endblock %}
+{% block content %}
+<section class="section narrow">
+  <h1>{% translate "Registro cerrado" %}</h1>
+  <p class="muted" style="margin-top:var(--s-near)">{% translate "Ahora mismo no se pueden crear cuentas nuevas. Pídele a quien te ha pasado el enlace que te dé de alta." %}</p>
+  <div class="group__actions"><a class="btn btn--secondary" href="{% url 'entrar' %}">{% translate "Entrar" %}</a></div>
+</section>
+{% endblock %}

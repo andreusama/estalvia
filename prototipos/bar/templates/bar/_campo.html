@@ -1,0 +1,7 @@
+{% load i18n %}
+<div class="campo{% if dudoso %} is-diff{% endif %}">
+  <label for="{{ campo.id_for_label }}" class="etiqueta">{{ etiqueta }}</label>
+  {{ campo }}
+  {% for e in campo.errors %}<p class="msg" role="alert">{{ e }}</p>{% endfor %}
+  {% if dudoso %}<p class="doubt"><span class="pill">{% translate "Dudoso" %}</span> {{ dudoso }}</p>{% endif %}
+</div>

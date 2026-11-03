@@ -1,0 +1,19 @@
+{% load i18n %}
+<nav class="tabbar" aria-label="{% translate 'Secciones' %}">
+  <div class="tabbar__in">
+    <a class="tab" href="{% url 'bar:inicio' %}"{% if activa == "inicio" %} aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4v-5H9v5H5a1 1 0 0 1-1-1z"/></svg>
+      <span>{% translate "Resumen" %}</span>
+    </a>
+    <a class="tab tab--subir" href="{% url 'bar:subir' %}"{% if activa == "subir" %} aria-current="page"{% endif %}>
+      <span class="tab__fab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
+      <span>{% translate "Subir" %}</span>
+    </a>
+    <a class="tab" href="{% url 'bar:revisar' %}"{% if activa == "revisar" %} aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7h11M9 12h11M9 17h11M4 7l1 1 2-2M4 12l1 1 2-2M4 17l1 1 2-2"/></svg>
+      <span>{% translate "Revisar" %}</span>
+      <span id="tab-contador" class="tab__badge" aria-hidden="true"{% if not n %} hidden{% endif %}>{{ n }}</span>
+      {% if n %}<span class="visually-hidden">{% blocktranslate count n=n %}{{ n }} cosa por revisar{% plural %}{{ n }} cosas por revisar{% endblocktranslate %}</span>{% endif %}
+    </a>
+  </div>
+</nav>

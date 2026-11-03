@@ -9,6 +9,5 @@ jobs:
         with: { python-version: "3.12" }
       - run: pip install -e ".[dev]" pip-audit
       - run: ruff check .
-      - run: pytest --cov=estalvia.engine --cov-fail-under=90
-      - run: python scripts/validate_rules.py rules
+      - run: pytest
       - run: pip-audit

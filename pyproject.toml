@@ -1,27 +1,24 @@
 [project]
 name = "estalvia"
 version = "0.1.0"
-description = "Copiloto energético para pymes agroalimentarias (MVP)"
-# TDD pide Python 3.12+ (VERIFICAR al iniciar). El código es compatible con 3.10 para el entorno local actual.
+description = "Estalvia: plataforma de prototipos de IA para pymes (primer módulo: albaranes y facturas de un bar)"
 requires-python = ">=3.10"
-dependencies = ["pydantic>=2", "pyyaml", "anthropic==2.3.0", "Django==5.2.18"]
+dependencies = ["anthropic==2.3.0", "Django==5.2.18", "psycopg[binary]>=3.2"]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-cov", "hypothesis", "ruff"]
+dev = ["pytest", "pytest-django", "ruff"]
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.package-data]
-"estalvia.web" = ["templates/**/*", "static/**/*"]
-
 [tool.setuptools.packages.find]
-where = ["src"]
+include = ["plataforma*", "prototipos*"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
-testpaths = ["tests"]
+pythonpath = ["."]
+DJANGO_SETTINGS_MODULE = "plataforma.settings_tests"
+testpaths = ["plataforma", "prototipos"]
 
 [tool.ruff]
 line-length = 120
@@ -30,3 +27,9 @@ extend-exclude = [".venv"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "B"]
 ignore = ["E741", "E731", "B008", "B905"]
+
+[tool.ruff.lint.per-file-ignores]
+"prototipos/bar/extraccion.py" = ["E501"]  # el prompt va en líneas largas a propósito
+
+[tool.vercel.scripts]
+build = "python build.py"

@@ -10,3 +10,16 @@ data/private/
 *.pdf
 invoice-*.csv
 tests/golden/private/
+
+# Plataforma (Vercel)
+staticfiles/
+.env.local
+.vercel
+
+# Base de datos local y archivos privados del Bar
+db.sqlite3
+prototipos/bar/data/private/
+
+# Extractos bancarios reales: nunca al repositorio
+extracto*.csv
+movimientos*.csv

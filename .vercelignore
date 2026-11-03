@@ -1,0 +1,12 @@
+# Lo que nunca debe subirse con `vercel deploy` (Vercel por Git ya respeta .gitignore)
+.env
+.env.*
+data/
+facturas/
+.venv/
+.git/
+.hypothesis/
+.pytest_cache/
+.ruff_cache/
+.coverage
+TDD*.md

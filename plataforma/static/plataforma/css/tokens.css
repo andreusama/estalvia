@@ -1,0 +1,34 @@
+/* Estalvia · tokens visuales. Único sitio con colores literales. */
+:root {
+  --bg: #F5F7F6; --surface: #FFFFFF; --ink: #141C18; --muted: #5C6762; --line: #E1E6E3;
+  --grey: #8C9691; --grey-soft: #EBEEEC;
+  --green: #187A4E; --green-ink: #146A44; --green-soft: #E3F2EA;
+  --red: #C8402F; --red-ink: #A5301F; --red-soft: #FBE8E4;
+  --on-green: #FFFFFF;
+
+  /* Las tres distancias: mismo grupo, entre grupos, entre secciones */
+  --s-near: 8px; --s-group: 32px; --s-section: 88px;
+
+  --font-text: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --gutter: max(16px, 4vw);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1411; --surface: #151C18; --ink: #E8EEEA; --muted: #97A39D; --line: #252E29;
+    --grey: #6F7B75; --grey-soft: #1D2521;
+    --green: #4CC38A; --green-ink: #6FD8A5; --green-soft: #153126;
+    --red: #EE7B6B; --red-ink: #F4968A; --red-soft: #3A1F1B;
+    --on-green: #0E1411;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1411; --surface: #151C18; --ink: #E8EEEA; --muted: #97A39D; --line: #252E29;
+  --grey: #6F7B75; --grey-soft: #1D2521;
+  --green: #4CC38A; --green-ink: #6FD8A5; --green-soft: #153126;
+  --red: #EE7B6B; --red-ink: #F4968A; --red-soft: #3A1F1B;
+  --on-green: #0E1411;
+  color-scheme: dark;
+}

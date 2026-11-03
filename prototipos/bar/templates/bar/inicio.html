@@ -1,0 +1,56 @@
+{% extends "bar/base.html" %}{% load i18n bar_extras %}
+{% block title %}{% translate "Resumen" %} · Estalvia{% endblock %}
+{% block content %}
+<header class="appbar">
+  <div><p class="eyebrow">{{ hoy|date:"F Y" }} · {{ request.user.username }}</p><h1>{% translate "Resumen" %}</h1></div>
+  <form method="post" action="{% url 'salir' %}">{% csrf_token %}<button class="btn btn--secondary" type="submit">{% translate "Salir" %}</button></form>
+</header>
+{% if confirmado %}<p class="msg msg--ok" role="status" data-aviso="{% translate 'Documento confirmado.' %}">= {% translate "Documento confirmado." %}</p>{% endif %}
+
+{% if hay_cifras %}
+<section class="section" aria-label="{% translate 'Estado de tus facturas' %}">
+  <div class="summary">
+    <div class="summary__bar" role="img" aria-label="{{ c.pagadas }} {% translate 'pagadas' %}, {{ c.por_revisar }} {% translate 'por revisar' %}, {{ c.sin_pagar }} {% translate 'sin pagar' %}">
+      {% if c.pagadas %}<span class="is-ok" style="flex:{{ c.pagadas }}"></span>{% endif %}
+      {% if c.por_revisar %}<span class="is-diff" style="flex:{{ c.por_revisar }}"></span>{% endif %}
+      {% if c.sin_pagar %}<span class="is-wait" style="flex:{{ c.sin_pagar }}"></span>{% endif %}
+    </div>
+    <div class="summary__figures">
+      <div class="figure is-ok"><span class="figure__num">{{ c.pagadas }}</span><span class="figure__label">{% translate "Pagadas" %}</span></div>
+      <div class="figure is-diff"><span class="figure__num">{{ c.por_revisar }}</span><span class="figure__label">{% translate "Por revisar" %}</span></div>
+      <div class="figure is-wait"><span class="figure__num">{{ c.sin_pagar }}</span><span class="figure__label">{% translate "Sin pagar" %}</span></div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="section" aria-labelledby="t-pagos">
+  <h2 id="t-pagos" class="visually-hidden">{% translate "Pagos" %}</h2>
+  <a class="fila is-{% if c.por_confirmar %}ok{% else %}wait{% endif %}" href="{% url 'bar:pagos' %}">
+    <span class="fila__main"><span class="fila__nombre">{% translate "Pagos del banco" %}</span><span class="fila__sub">{% if c.por_confirmar %}{% blocktranslate count n=c.por_confirmar %}{{ n }} pago por confirmar{% plural %}{{ n }} pagos por confirmar{% endblocktranslate %}{% else %}{% translate "Sube el extracto (CSV) de tu banco" %}{% endif %}</span></span>
+    <span class="fila__lado"><span class="pill">{% if c.por_confirmar %}{% translate "Por confirmar" %}{% else %}{% translate "Abrir" %}{% endif %}</span></span>
+  </a>
+</section>
+
+<section class="section" aria-labelledby="t-docs">
+  <div class="cabecera-lista"><h2 id="t-docs">{% translate "Tus documentos" %}</h2>{% if docs %}<span class="muted num">{{ docs|length }}</span>{% endif %}</div>
+  {% if docs %}
+  <div class="lista lista--junta">
+    {% for d in docs %}
+    <a class="fila is-{{ d.estilo }}" href="{{ d.url }}">
+      <span class="fila__main">
+        <span class="fila__nombre">{{ d.proveedor_nombre|default:d.nombre_archivo }}</span>
+        <span class="fila__sub">{% if d.estado == "procesado" or d.estado == "revisado" %}{{ d.get_tipo_display }} <span class="mono">{{ d.numero }}</span>{% if d.fecha %} · {{ d.fecha|date:"j M Y" }}{% endif %}{% else %}{% translate "Sin leer todavía" %}{% endif %}</span>
+      </span>
+      <span class="fila__lado">
+        <span class="fila__importe">{% if d.total is not None %}{{ d.total|eur }}{% else %}—{% endif %}</span>
+        <span class="pill">{{ d.get_estado_display }}</span>
+      </span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="vacio"><p class="muted">{% translate "Todavía no has subido nada. Haz una foto de un albarán o una factura y aparecerá aquí." %}</p><a class="btn btn--primary" href="{% url 'bar:subir' %}">{% translate "Subir documento" %}</a></div>
+  {% endif %}
+</section>
+{% endblock %}

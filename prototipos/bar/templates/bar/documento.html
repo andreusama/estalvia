@@ -1,0 +1,135 @@
+{% extends "bar/base.html" %}{% load i18n static bar_extras %}
+{% block mainclass %}app__main--ancho{% endblock %}
+{% block title %}{{ doc.proveedor_nombre|default:doc.nombre_archivo }} · Estalvia{% endblock %}
+{% block content %}
+<p><a class="muted" href="{% url 'bar:inicio' %}">← {% translate "Todos los documentos" %}</a></p>
+<header class="section" style="margin-top:var(--s-group)">
+  <p class="eyebrow">{{ doc.get_tipo_display }} · {{ doc.get_estado_display }}</p>
+  <h1 style="margin-top:var(--s-near)">{{ doc.proveedor_nombre|default:doc.nombre_archivo }}</h1>
+  {% if guardado %}<p class="msg msg--ok" role="status" style="margin-top:var(--s-group)">= {% translate "Cambios guardados." %}</p>{% endif %}
+  {% if revisado_ahora %}<p class="msg msg--ok" role="status" style="margin-top:var(--s-group)">= {% translate "Documento revisado." %}</p>{% endif %}
+</header>
+
+<section class="section">
+  <div class="grid">
+    {% if comprobaciones %}
+    <div class="group is-diff"><div class="group__head"><h2 class="group__name">{% translate "No cuadra" %}</h2><span class="pill">{% translate "Revisa estas cifras" %}</span></div>
+      {% for c in comprobaciones %}<p class="group__note"><span class="rel" role="img" aria-label="{% translate 'No coincide' %}">≠</span> {{ c.texto }}</p>{% endfor %}</div>
+    {% else %}
+    <div class="group is-ok"><div class="group__head"><h2 class="group__name">{% translate "Las cifras cuadran" %}</h2><span class="pill">{% translate "Coincide" %}</span></div>
+      <p class="group__note">{% translate "Las líneas suman la base, y la base más el IVA suma el total, al céntimo." %}</p></div>
+    {% endif %}
+    {% if doc.avisos %}
+    <div class="group is-wait"><div class="group__head"><h2 class="group__name">{% translate "Ten en cuenta" %}</h2><span class="pill">{% translate "Aviso de la IA" %}</span></div>
+      {% for a in doc.avisos %}<p class="group__note">{{ a }}</p>{% endfor %}</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="section">
+  <div class="review">
+    <figure class="visor">
+      {% if es_pdf %}<iframe class="visor__pdf" src="{% url 'bar:archivo' doc.pk %}" title="{{ doc.nombre_archivo }}"></iframe>
+      {% else %}<a href="{% url 'bar:archivo' doc.pk %}" target="_blank" rel="noopener"><img class="visor__img" src="{% url 'bar:archivo' doc.pk %}" alt="{% translate 'Foto del documento' %}"></a>{% endif %}
+      <figcaption class="muted">{{ doc.nombre_archivo }}</figcaption>
+    </figure>
+
+    <form method="post" class="revision">
+      {% csrf_token %}
+      <div class="group">
+        <h2 class="group__name">{% translate "Datos del documento" %}</h2>
+        <div class="form-grid">
+          {% include "bar/_campo.html" with campo=form.tipo etiqueta=_("Tipo") dudoso=dudosos.tipo %}
+          {% include "bar/_campo.html" with campo=form.numero etiqueta=_("Número") dudoso=dudosos.numero %}
+          {% include "bar/_campo.html" with campo=form.fecha etiqueta=_("Fecha") dudoso=dudosos.fecha %}
+          {% include "bar/_campo.html" with campo=form.vencimiento etiqueta=_("Vencimiento") dudoso=dudosos.vencimiento %}
+          {% include "bar/_campo.html" with campo=form.proveedor_nombre etiqueta=_("Proveedor") dudoso=dudosos.proveedor_nombre %}
+          {% include "bar/_campo.html" with campo=form.proveedor_nif etiqueta=_("NIF del proveedor") dudoso=dudosos.proveedor_nif %}
+          {% include "bar/_campo.html" with campo=form.proveedor_iban etiqueta=_("IBAN del proveedor") dudoso=dudosos.proveedor_iban %}
+          {% include "bar/_campo.html" with campo=form.forma_pago etiqueta=_("Forma de pago") dudoso=dudosos.forma_pago %}
+          {% include "bar/_campo.html" with campo=form.cliente_nombre etiqueta=_("Cliente") dudoso=dudosos.cliente_nombre %}
+          {% include "bar/_campo.html" with campo=form.cliente_nif etiqueta=_("NIF del cliente") dudoso=dudosos.cliente_nif %}
+        </div>
+      </div>
+
+      <div class="group">
+        <h2 class="group__name">{% translate "Productos" %}</h2>
+        {{ lineas.management_form }}{{ lineas.non_form_errors }}
+        {% for f in lineas.forms %}
+        <div class="linea">
+          {% for h in f.hidden_fields %}{{ h }}{% endfor %}
+          <p class="eyebrow">{% if f.instance.pk %}{% translate "Línea" %} {{ forloop.counter }}{% else %}{% translate "Añadir otra línea" %}{% endif %}</p>
+          {% for motivo in dudosos_lineas|get_item:forloop.counter %}<p class="doubt"><span class="pill">{% translate "Dudoso" %}</span> {{ motivo }}</p>{% endfor %}
+          <div class="form-grid form-grid--wide">
+            {% include "bar/_campo.html" with campo=f.descripcion etiqueta=_("Producto") %}
+            {% include "bar/_campo.html" with campo=f.codigo etiqueta=_("Código") %}
+          </div>
+          <div class="form-grid">
+            {% include "bar/_campo.html" with campo=f.cantidad etiqueta=_("Cantidad") %}
+            {% include "bar/_campo.html" with campo=f.unidad etiqueta=_("Unidad") %}
+            {% include "bar/_campo.html" with campo=f.precio_unitario etiqueta=_("Precio") %}
+            {% include "bar/_campo.html" with campo=f.descuento etiqueta=_("Descuento") %}
+            {% include "bar/_campo.html" with campo=f.importe etiqueta=_("Importe") %}
+          </div>
+          {% if f.instance.pk %}<label class="quitar">{{ f.DELETE }} {% translate "Quitar esta línea" %}</label>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="group">
+        <h2 class="group__name">{% translate "Cifras finales" %}</h2>
+        <div class="form-grid">
+          {% include "bar/_campo.html" with campo=form.base_imponible etiqueta=_("Base imponible") dudoso=dudosos.base_imponible %}
+          {% include "bar/_campo.html" with campo=form.total etiqueta=_("Total") dudoso=dudosos.total %}
+        </div>
+        {{ iva.management_form }}{{ iva.non_form_errors }}
+        {% if dudosos.iva %}<p class="doubt"><span class="pill">{% translate "Dudoso" %}</span> {{ dudosos.iva }}</p>{% endif %}
+        {% for f in iva.forms %}
+        <div class="linea">
+          {% for h in f.hidden_fields %}{{ h }}{% endfor %}
+          <p class="eyebrow">{% if f.instance.pk %}{% translate "IVA" %}{% else %}{% translate "Añadir otro tipo de IVA" %}{% endif %}</p>
+          <div class="form-grid">
+            {% include "bar/_campo.html" with campo=f.tipo etiqueta=_("Tipo de IVA") %}
+            {% include "bar/_campo.html" with campo=f.base etiqueta=_("Base") %}
+            {% include "bar/_campo.html" with campo=f.cuota etiqueta=_("Cuota") %}
+          </div>
+          {% if f.instance.pk %}<label class="quitar">{{ f.DELETE }} {% translate "Quitar" %}</label>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="group">
+        <h2 class="group__name">{% translate "Albaranes que cita" %}</h2>
+        {{ refs.management_form }}{{ refs.non_form_errors }}
+        {% if dudosos.referencias_albaran %}<p class="doubt"><span class="pill">{% translate "Dudoso" %}</span> {{ dudosos.referencias_albaran }}</p>{% endif %}
+        {% for f in refs.forms %}
+        <div class="linea">
+          {% for h in f.hidden_fields %}{{ h }}{% endfor %}
+          <div class="form-grid">
+            {% include "bar/_campo.html" with campo=f.numero etiqueta=_("Número de albarán") %}
+            {% include "bar/_campo.html" with campo=f.fecha etiqueta=_("Fecha") %}
+          </div>
+          {% if f.instance.pk %}<label class="quitar">{{ f.DELETE }} {% translate "Quitar" %}</label>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="acciones">
+        {% if doc.estado == "revisado" %}
+          <button class="btn btn--primary" type="submit" name="accion" value="guardar">{% translate "Guardar cambios" %}</button>
+        {% else %}
+          <button class="btn btn--primary" type="submit" name="accion" value="revisar">{% translate "Está todo correcto: marcar como revisado" %}</button>
+          <button class="btn btn--secondary" type="submit" name="accion" value="guardar">{% translate "Guardar y seguir después" %}</button>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="section">
+  <h2>{% translate "Historia" %}</h2>
+  <ul class="historia">
+    {% for e in eventos %}<li><span class="num muted">{{ e.cuando|date:"d/m/Y H:i" }}</span> <strong>{{ e.tipo }}</strong> <span class="muted">{{ e.detalle }}</span></li>{% endfor %}
+  </ul>
+</section>
+{% endblock %}

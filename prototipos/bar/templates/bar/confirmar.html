@@ -1,0 +1,40 @@
+{% extends "bar/base.html" %}{% load i18n bar_extras %}
+{% block title %}{% translate "Confirmar lectura" %} · Estalvia{% endblock %}
+{% block mainclass %}app__main--libre{% endblock %}
+{% block tabs %}{% endblock %}
+{% block content %}
+<header class="appbar appbar--atras">
+  <a class="icono" href="{% url 'bar:inicio' %}" aria-label="{% translate 'Volver al resumen' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></a>
+  <h1>{% translate "Confirmar lectura" %}</h1>
+</header>
+
+<section class="section">
+  <div class="vista-previa">
+    {% if doc.tipo_mime == "application/pdf" %}<a class="btn btn--secondary" href="{% url 'bar:archivo' doc.pk %}" target="_blank" rel="noopener">{% translate "Abrir el PDF" %}</a>
+    {% else %}<a href="{% url 'bar:archivo' doc.pk %}" target="_blank" rel="noopener"><img src="{% url 'bar:archivo' doc.pk %}" alt="{% translate 'Foto del documento' %}"></a>{% endif %}
+  </div>
+</section>
+
+<section class="section is-{% if limpio %}ok{% else %}diff{% endif %}" aria-labelledby="t-leido">
+  <div class="cabecera-lista"><h2 id="t-leido">{% translate "Lo que hemos leído" %}</h2><span class="pill">{% if limpio %}{% translate "Todo legible" %}{% else %}{% translate "Revisa los datos" %}{% endif %}</span></div>
+  <div class="lista lista--junta">
+    <a class="dato{% if dudosos.tipo %} is-diff{% endif %}" href="{% url 'bar:documento' doc.pk %}#id_tipo"><span class="dato__etiqueta">{% translate "Tipo" %}</span><span class="dato__valor">{{ doc.get_tipo_display }}</span></a>
+    <a class="dato{% if dudosos.proveedor_nombre %} is-diff{% endif %}" href="{% url 'bar:documento' doc.pk %}#id_proveedor_nombre"><span class="dato__etiqueta">{% translate "Proveedor" %}</span><span class="dato__valor">{{ doc.proveedor_nombre|default:"—" }}</span></a>
+    <a class="dato{% if dudosos.numero %} is-diff{% endif %}" href="{% url 'bar:documento' doc.pk %}#id_numero"><span class="dato__etiqueta">{% translate "Número" %}</span><span class="dato__valor mono">{{ doc.numero|default:"—" }}</span></a>
+    <a class="dato{% if dudosos.fecha %} is-diff{% endif %}" href="{% url 'bar:documento' doc.pk %}#id_fecha"><span class="dato__etiqueta">{% translate "Fecha" %}</span><span class="dato__valor">{% if doc.fecha %}{{ doc.fecha|date:"j M Y" }}{% else %}—{% endif %}</span></a>
+    <a class="dato{% if dudosos.total %} is-diff{% endif %}" href="{% url 'bar:documento' doc.pk %}#id_total"><span class="dato__etiqueta">{% translate "Importe" %}</span><span class="dato__valor mono">{{ doc.total|eur }}</span></a>
+  </div>
+  {% for campo, motivo in dudosos.items %}<p class="doubt" style="margin-top:var(--s-near)"><span class="pill">{% translate "Dudoso" %}</span> {{ motivo }}</p>{% endfor %}
+  {% for f in fallos %}<p class="msg" role="alert" style="margin-top:var(--s-near)"><span aria-hidden="true">≠</span> {{ f.texto }}</p>{% endfor %}
+  <p class="muted" style="margin-top:var(--s-group)">{% translate "Toca un dato para corregirlo." %}</p>
+</section>
+
+<section class="section lista lista--junta">
+  {% if limpio %}
+  <form method="post">{% csrf_token %}<button class="btn btn--primary btn--block" type="submit">{% translate "Confirmar" %}</button></form>
+  {% else %}
+  <a class="btn btn--primary btn--block" href="{% url 'bar:documento' doc.pk %}">{% translate "Revisar y corregir" %}</a>
+  {% endif %}
+  <a class="btn btn--secondary btn--block" href="{% url 'bar:subir' %}">{% translate "Escanear otro" %}</a>
+</section>
+{% endblock %}

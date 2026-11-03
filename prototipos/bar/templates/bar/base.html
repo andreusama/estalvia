@@ -1,0 +1,9 @@
+{% extends "plataforma/base.html" %}{% load static i18n bar_extras %}
+{% block head %}<link rel="stylesheet" href="{% static 'plataforma/css/movil.css' %}">{% endblock %}
+{% block bodyclass %}app{% endblock %}
+{% block shell %}
+<main class="app__main {% block mainclass %}{% endblock %}">{% block content %}{% endblock %}</main>
+<div id="aviso" class="aviso" role="status" aria-live="polite"></div>
+{% block tabs %}{% tabbar %}{% endblock %}
+<script src="{% static 'bar/js/app.js' %}" defer></script>
+{% endblock %}
