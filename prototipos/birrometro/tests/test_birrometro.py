@@ -72,15 +72,58 @@ def test_no_deja_repartir_mas_litros_de_los_que_hay(web):
     assert not Barril.objects.exists()
 
 
-def test_sin_raciones_enseña_cuantas_cabrian(web):
+def test_sin_cantidades_ya_se_ve_lo_que_ganas_con_cada_una(web):
     html = web.get("/birrometro/", {**DATOS, "zurito_n": "", "cana_n": "", "jarra_n": ""}).content.decode()
-    assert "Quedan 27,6 L" in html and "como mucho 69" in html and "Beneficio del barril" not in html
+    assert "Lo que ganas con cada una" in html and "1,15 €" in html and "1,62 €" in html and "2,33 €" in html
+    assert "Beneficio del barril" not in html and "No hace falta rellenar los tres" in html
+
+
+def test_el_total_se_calcula_solo_con_las_canas(web):
+    solo_canas = {**DATOS, "zurito_n": "", "jarra_n": "", "cana_n": "100"}
+    html = web.get("/birrometro/", solo_canas).content.decode()
+    # 100 cañas a 2,50 € con IVA = 227,27 € sin IVA; menos los 90 € del barril
+    assert "Beneficio del barril" in html and "137,27" in html and "Te pasas" not in html
+
+
+def test_si_te_pasas_de_litros_sigues_viendo_lo_que_ganas_por_racion(web):
+    html = web.get("/birrometro/", {**DATOS, "jarra_n": "69"}).content.decode()
+    assert "Te pasas" in html and "Beneficio del barril" not in html
+    assert "2,33 €" in html and "Máx" in html
+
+
+def test_maximo_descuenta_lo_que_ya_has_repartido_en_los_otros_tipos(web):
+    # 27,6 L servibles; 40 zuritos (6 L) y 60 cañas (12 L) = 18 L → quedan 9,6 L = 24 jarras de 40 cl
+    pedir = lambda tipo, **kw: web.get(  # noqa: E731
+        "/birrometro/", {**DATOS, "maximo": tipo, **kw}, headers={"X-Requested-With": "fetch"}
+    ).json()
+    assert pedir("jarra", jarra_n="") == {"n": 24}
+    assert pedir("jarra", jarra_n="20") == {"n": 24}  # lo que ya hay en su propio campo no cuenta
+    assert pedir("cana", zurito_n="", jarra_n="", cana_n="") == {"n": 138}  # 27,6 L / 20 cl
+    assert pedir("zurito", cana_n="138", jarra_n="") == {"n": 0}  # no queda nada
+
+
+def test_maximo_pide_los_litros_si_faltan(web):
+    r = web.get("/birrometro/", {"maximo": "cana", "cana_cl": "20"}, headers={"X-Requested-With": "fetch"})
+    assert r.json() == {"error": "Escribe primero los litros del barril."}
+
+
+def test_tres_maximos_seguidos_nunca_se_pasan_de_litros(web):
+    datos = {**DATOS, "zurito_n": "", "cana_n": "", "jarra_n": ""}
+    for tipo in ("jarra", "cana", "zurito"):
+        n = web.get("/birrometro/", {**datos, "maximo": tipo}, headers={"X-Requested-With": "fetch"}).json()["n"]
+        datos[f"{tipo}_n"] = str(n)
+    assert "Te pasas" not in web.get("/birrometro/", datos).content.decode()
+
+
+def test_la_pantalla_trae_un_boton_max_por_tipo(web):
+    html = web.get("/birrometro/").content.decode()
+    assert all(f'data-max="{k}"' in html for k in ("zurito", "cana", "jarra"))
 
 
 def test_el_deslizador_pide_solo_el_resultado(web):
     r = web.get("/birrometro/", {**DATOS, "jarra_pvp": "0.50"}, headers={"X-Requested-With": "fetch"})
     html = r.content.decode()
-    assert "<html" not in html and "Lo que sacas de cada ración" in html and "Jarra · 40 cl" in html
+    assert "<html" not in html and "Lo que ganas con cada una" in html and "Jarra · 40 cl" in html
 
 
 def test_datos_no_validos_se_explican_sin_calcular(web):

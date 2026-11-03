@@ -1,7 +1,10 @@
+from dataclasses import replace
+from decimal import Decimal
 from functools import wraps
 
 from django.conf import settings
 from django.db import transaction
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -9,6 +12,7 @@ from django.utils import timezone
 from . import calculo
 from .forms import BarrilForm
 from .models import Barril, RacionBarril
+from .numeros import a_decimal
 
 MARCAS_COMUNES = [
     "Estrella Damm", "Moritz", "Estrella Galicia", "Mahou", "San Miguel", "Voll-Damm", "Heineken", "Cruzcampo",
@@ -55,17 +59,48 @@ def _subida(r, previo):
 
 
 def _contexto_resultado(form, barriles):
-    """Resultado de los datos escritos (si son válidos) y su comparación con el barril anterior de la marca."""
-    if not form.is_bound or not form.is_valid():
+    """Resultado de los datos escritos y su comparación con el barril anterior de la marca.
+
+    Lo que ganas por cada ración no depende de cuántas saques, así que se calcula en cuanto hay litros y precio. Si
+    lo repartido se pasa de los litros, se enseña ese aviso y el total no se calcula.
+    """
+    if not form.is_bound:
+        return {"form": form}
+    form.is_valid()
+    if set(form.errors) - {"__all__"}:  # algún dato suelto está mal: se explica y no se calcula nada
         return {"form": form}
     d = form.cleaned_data
-    r = calculo.calcular(d["litros"], d["precio"], form.raciones(), d["merma"], d["iva_venta"])
+    raciones = form.raciones()
+    exceso = form.non_field_errors()
+    if exceso:  # se calcula cada ración sin repartir nada para poder enseñar lo que ganas por ración
+        raciones = [replace(r, cantidad=0) for r in raciones]
+    r = calculo.calcular(d["litros"], d["precio"], raciones, d["merma"], d["iva_venta"])
     previo = calculo.anterior_de_la_marca(barriles, d["marca"], d["fecha"])
     cambio, sube = _subida(r, previo)
     return {
         "form": form, "r": r, "d": d, "previo": previo, "cambio": cambio, "sube": sube,
-        "umbral": calculo.UMBRAL_SUBIDA,
+        "umbral": calculo.UMBRAL_SUBIDA, "exceso": exceso, "hay_total": r.sirve_algo and not exceso,
     }  # fmt: skip
+
+
+def _maximo(parametros, clave):
+    """El «Máx» de un tipo: cuántas caben aún, descontando lo ya repartido en los otros. Lo calcula el servidor."""
+    litros, merma = a_decimal(parametros.get("litros")), a_decimal(parametros.get("merma"))
+    if litros is None or not (1 <= litros <= 200):
+        return {"error": "Escribe primero los litros del barril."}
+    merma = Decimal("8") if merma is None else merma
+
+    def entero(nombre, defecto=0):
+        try:
+            return max(int(parametros.get(nombre) or defecto), 0)
+        except ValueError:
+            return defecto
+
+    cl = entero(f"{clave}_cl", 1) or 1
+    otros = sum(
+        (Decimal(entero(f"{k}_n") * entero(f"{k}_cl")) / 100 for k, *_ in calculo.TIPOS if k != clave), Decimal(0)
+    )
+    return {"n": calculo.maximo_restante(litros, merma, cl, otros)}
 
 
 def _guardar(usuario, form):
@@ -83,6 +118,9 @@ def _guardar(usuario, form):
 
 @necesita_bd
 def inicio(request):
+    clave_maximo = request.GET.get("maximo")
+    if clave_maximo in {k for k, *_ in calculo.TIPOS} and _ajax(request):
+        return JsonResponse(_maximo(request.GET, clave_maximo))
     barriles = list(Barril.objects.filter(propietario=request.user).prefetch_related("raciones"))
     if request.method == "POST":
         form = BarrilForm(request.POST)

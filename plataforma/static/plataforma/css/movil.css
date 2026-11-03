@@ -136,3 +136,6 @@
 .app .racion legend { padding: 0 8px; font-weight: 600; }
 .app .racion__fila { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-group); }
 .app .subtitulo { font-size: 1rem; margin: var(--s-group) 0 var(--s-near); }
+.app .con-boton { display: flex; gap: var(--s-near); align-items: stretch; }
+.app .con-boton .field { flex: 1 1 auto; min-width: 0; }
+.app .con-boton .btn { flex: none; min-width: 64px; }

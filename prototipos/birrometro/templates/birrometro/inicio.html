@@ -19,12 +19,12 @@
   <div class="campo"><label class="etiqueta" for="id_fecha">{% translate "Fecha de compra" %}</label>{{ form.fecha }}</div>
 
   <h2>{% translate "Raciones" %}</h2>
-  <p class="group__note muted">{% translate "Para cada tipo: cuántos centilitros, a qué precio (con IVA) y cuántas sacas del barril. Si no sacas de un tipo, déjalo en 0." %}</p>
+  <p class="group__note muted">{% translate "Para cada tipo: cuántos centilitros, a qué precio (con IVA) y cuántas sacas del barril. No hace falta rellenar los tres: lo que dejes en blanco no cuenta. «Máx» pone todas las que caben." %}</p>
   {% for f in filas %}
   <fieldset class="racion">
     <legend>{{ f.nombre }}</legend>
     <div class="racion__fila">
-      <div class="campo"><label class="etiqueta" for="id_{{ f.clave }}_n">{% translate "Cuántas" %}</label>{{ f.n }}</div>
+      <div class="campo"><label class="etiqueta" for="id_{{ f.clave }}_n">{% translate "Cuántas" %}</label><div class="con-boton">{{ f.n }}<button class="btn btn--secondary" type="button" data-max="{{ f.clave }}" hidden>{% translate "Máx" %}</button></div></div>
       <div class="campo"><label class="etiqueta" for="id_{{ f.clave }}_cl">cl</label>{{ f.cl }}</div>
     </div>
     <label class="etiqueta" for="id_{{ f.clave }}_pvp">{% translate "Precio" %}: <output class="mono" data-de="id_{{ f.clave }}_pvp">{{ f.pvp }}</output> €</label>
@@ -32,6 +32,7 @@
   </fieldset>
   {% endfor %}
 
+  <p id="aviso-max" class="msg" role="alert" hidden></p>
   <div id="resultado" aria-live="polite">{% include "birrometro/_resultado.html" %}</div>
 
   <details class="ajustes">

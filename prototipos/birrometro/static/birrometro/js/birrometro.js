@@ -23,6 +23,26 @@
       .catch(function () {});
   }
 
+  var aviso = document.getElementById("aviso-max");
+  function maximo(clave) { // «Máx»: el servidor dice cuántas caben aún; el barman no calcula nada
+    var datos = new URLSearchParams(new FormData(form));
+    datos.delete("csrfmiddlewaretoken");
+    datos.set("maximo", clave);
+    fetch(form.action + "?" + datos.toString(), { headers: { "X-Requested-With": "fetch" }, credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        aviso.hidden = !r.error;
+        if (r.error) { aviso.textContent = "≠ " + r.error; return; }
+        form.elements[clave + "_n"].value = r.n;
+        cambio();
+      })
+      .catch(function () {});
+  }
+  form.querySelectorAll("[data-max]").forEach(function (b) {
+    b.hidden = false; // sin JavaScript el botón no tiene nada que hacer
+    b.addEventListener("click", function () { maximo(b.getAttribute("data-max")); });
+  });
+
   function cambio() { mostrar(); clearTimeout(espera); espera = setTimeout(pedir, 150); }
 
   mostrar();

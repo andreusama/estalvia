@@ -71,6 +71,14 @@ def litros_de(raciones: list[Racion]) -> Decimal:
     return sum((Decimal(r.cantidad * r.cl) / CIEN for r in raciones), Decimal(0))
 
 
+def maximo_restante(litros: Decimal, merma: Decimal, cl: int, otros_litros: Decimal) -> int:
+    """Cuántas raciones de `cl` caben todavía, después de descontar lo que ya se ha repartido en los otros tipos."""
+    libres = litros_utiles(litros, merma) - otros_litros
+    if libres <= 0:
+        return 0
+    return int((libres * CIEN / Decimal(cl)).to_integral_value(rounding=ROUND_FLOOR))
+
+
 def calcular(litros: Decimal, precio: Decimal, raciones: list[Racion], merma: Decimal, iva: Decimal) -> Resultado:
     """Reparte el barril. Quien llama ya ha comprobado que las raciones caben (`litros_de` ≤ `litros_utiles`)."""
     utiles = litros_utiles(litros, merma)
