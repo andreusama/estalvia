@@ -9,11 +9,11 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from . import birrometro, extracto, panel, servicios
+from . import extracto, panel, servicios
 from . import pagos as banco
 from .comprobaciones import comprobar
-from .forms import BarrilForm, DocumentoForm, IvaFormSet, LineaFormSet, PerfilImportacionForm, ReferenciaFormSet
-from .models import Barril, Documento, Movimiento, PerfilImportacion
+from .forms import DocumentoForm, IvaFormSet, LineaFormSet, PerfilImportacionForm, ReferenciaFormSet
+from .models import Documento, Movimiento, PerfilImportacion
 from .numeros import normalizar_referencia  # noqa: F401  (se usará en la conciliación)
 
 # Color con significado: rojo = hay que hacer algo, gris = esperando, verde = hecho
@@ -350,76 +350,3 @@ def formato_banco(request):
         form.save()
         return redirect(f"{reverse('bar:pagos')}?hecho=formato")
     return render(request, "bar/formato_banco.html", {"form": form})
-
-
-# ---- Birròmetro: cuánto se gana con un barril ----
-
-POR_DEFECTO_BARRIL = {"precio_venta": "2.50", "servicio_cl": "20", "merma": "8", "iva_venta": "10"}
-
-
-def _contexto_resultado(form, barriles):
-    """Resultado de los datos escritos (si son válidos) y su comparación con el barril anterior de la marca."""
-    if not form.is_bound or not form.is_valid():
-        return {"form": form}
-    d = form.cleaned_data
-    r = birrometro.calcular(d["litros"], d["precio"], d["precio_venta"], d["servicio_cl"], d["merma"], d["iva_venta"])
-    previo = birrometro.anterior_de_la_marca(barriles, d["marca"], d["fecha"])
-    anterior = previo.precio / previo.litros if previo else None
-    cambio = birrometro.cambio_de_precio(r.coste_litro, anterior)
-    return {
-        "form": form,
-        "r": r,
-        "d": d,
-        "previo": previo,
-        "cambio": cambio,
-        "sube": cambio is not None and cambio >= birrometro.UMBRAL_SUBIDA,
-        "umbral": birrometro.UMBRAL_SUBIDA,
-    }
-
-
-@necesita_bd
-def birrometro_pantalla(request):
-    barriles = list(Barril.objects.filter(propietario=request.user))
-    if request.method == "POST":
-        form = BarrilForm(request.POST)
-        if form.is_valid():
-            d = form.cleaned_data
-            Barril.objects.create(propietario=request.user, **{k: d[k] for k in form.fields})
-            return redirect(f"{reverse('bar:birrometro')}?hecho=guardado")
-    elif "litros" in request.GET:
-        form = BarrilForm(request.GET)
-    else:
-        form = BarrilForm(initial={"fecha": timezone.localdate().isoformat(), "litros": "", **POR_DEFECTO_BARRIL})
-    contexto = _contexto_resultado(form, barriles)
-    if _ajax(request):  # el deslizador pide solo el resultado; la cuenta la hace siempre el servidor
-        return render(request, "bar/_birrometro_resultado.html", contexto)
-    historial = []
-    for b in barriles:
-        r = birrometro.calcular(b.litros, b.precio, b.precio_venta, b.servicio_cl, b.merma, b.iva_venta)
-        previo = birrometro.anterior_de_la_marca(barriles, b.marca, b.fecha, excluir_pk=b.pk)
-        cambio = birrometro.cambio_de_precio(r.coste_litro, previo.precio / previo.litros if previo else None)
-        historial.append(
-            {"b": b, "r": r, "cambio": cambio, "sube": cambio is not None and cambio >= birrometro.UMBRAL_SUBIDA}
-        )
-    contexto.update(
-        {
-            "historial": historial,
-            "marcas": sorted({b.marca for b in barriles} | set(MARCAS_COMUNES)),
-            "umbral": birrometro.UMBRAL_SUBIDA,
-            "guardado": request.GET.get("hecho") == "guardado",
-            "slider": str(form["precio_venta"].value() or POR_DEFECTO_BARRIL["precio_venta"]).replace(",", "."),
-        }
-    )
-    return render(request, "bar/birrometro.html", contexto)
-
-
-MARCAS_COMUNES = [
-    "Estrella Damm",
-    "Moritz",
-    "Estrella Galicia",
-    "Mahou",
-    "San Miguel",
-    "Voll-Damm",
-    "Heineken",
-    "Cruzcampo",
-]

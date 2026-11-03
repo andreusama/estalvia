@@ -1,0 +1,6 @@
+{% extends "plataforma/base.html" %}{% load static %}
+{% block head %}<link rel="stylesheet" href="{% static 'plataforma/css/movil.css' %}">{% endblock %}
+{% block bodyclass %}app{% endblock %}
+{% block shell %}
+<main class="app__main app__main--libre">{% block content %}{% endblock %}</main>
+{% endblock %}

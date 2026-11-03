@@ -8,4 +8,5 @@ urlpatterns = [
     path("registro/", views.registro, name="registro"),
     path("salir/", views.salir, name="salir"),
     path("bar/", include("prototipos.bar.urls")),
+    path("birrometro/", include("prototipos.birrometro.urls")),
 ]

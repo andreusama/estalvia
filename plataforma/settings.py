@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "plataforma",
     "prototipos.bar",
+    "prototipos.birrometro",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

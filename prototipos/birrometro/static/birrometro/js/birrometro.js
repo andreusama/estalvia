@@ -1,14 +1,15 @@
-// Birròmetro: al mover el deslizador o cambiar un dato se pide el resultado al servidor (la cuenta la hace él).
+// Birròmetro: al mover un deslizador o cambiar un dato se pide el resultado al servidor (la cuenta la hace él).
 (function () {
   var form = document.getElementById("birrometro");
   if (!form) return;
   var salida = document.getElementById("resultado");
-  var texto = document.getElementById("precio-venta-texto");
-  var deslizador = document.getElementById("id_precio_venta");
   var espera = null, peticion = 0;
 
   function mostrar() { // solo repite lo que has escrito, con coma; no calcula nada
-    texto.textContent = Number(deslizador.value).toFixed(2).replace(".", ",");
+    form.querySelectorAll("output[data-de]").forEach(function (o) {
+      var campo = document.getElementById(o.getAttribute("data-de"));
+      if (campo) o.textContent = Number(campo.value).toFixed(2).replace(".", ",");
+    });
   }
 
   function pedir() {
@@ -28,5 +29,5 @@
   form.addEventListener("input", cambio);
   form.addEventListener("change", cambio);
   document.getElementById("calcular").hidden = true; // con JavaScript se calcula solo
-  if (form.litros && form.litros.value && form.precio.value) pedir();
+  pedir();
 })();

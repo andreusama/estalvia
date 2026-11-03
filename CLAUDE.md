@@ -1,7 +1,7 @@
 # EstalvIA
 
 Plataforma de prototipos de IA para pymes: un proyecto Django (`plataforma/`) con una app por prototipo en `prototipos/<nombre>/`.
-Primer prototipo: **Bar** (albaranes y facturas de proveedores a partir de fotos). Decisiones del sistema en `docs/adr/`; las del
+Prototipos: **Bar** (albaranes y facturas de proveedores a partir de fotos) y **Birròmetro** (cuánto se gana con cada barril de cerveza; herramienta aparte). Decisiones del sistema en `docs/adr/`; las del
 prototipo en `prototipos/bar/docs/adr/`. Reglas duras: ningún importe lo calcula la IA (la IA lee, el código calcula y compara, sin
 tolerancia), nada se da por bueno sin revisión humana, y solo imágenes sintéticas o respuestas de IA falsas en los tests y en git
 (excepción de datos reales: `prototipos/bar/docs/adr/0001-fotos-reales-a-terceros.md`). Comandos: ver `README.md`.

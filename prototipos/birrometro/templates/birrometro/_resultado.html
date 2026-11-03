@@ -1,0 +1,42 @@
+{% load i18n birrometro_extras %}{% if r and r.sirve_algo %}
+<div class="group is-{% if r.gana %}ok{% else %}diff{% endif %}">
+  <div class="group__head">
+    <span class="group__name">{% translate "Beneficio del barril" %}</span>
+    <span class="pill">{% if r.gana %}{% translate "Ganas" %}{% else %}{% translate "Pierdes dinero" %}{% endif %}</span>
+  </div>
+  <p class="cifra">{% if r.gana %}={% else %}≠{% endif %} {{ r.beneficio|eur }}</p>
+  <p class="group__note">{% if r.margen is not None %}{% blocktranslate with m=r.margen|floatformat:1 %}Margen del {{ m }} % sobre lo que entra sin IVA.{% endblocktranslate %}{% endif %}</p>
+</div>
+
+<h3 class="subtitulo">{% translate "Lo que sacas de cada ración" %}</h3>
+<div class="lista lista--junta">
+  {% for l in r.lineas %}{% if l.racion.cantidad %}
+  <div class="fila is-{% if l.beneficio >= 0 %}ok{% else %}diff{% endif %}">
+    <span class="fila__main"><span class="fila__nombre">{{ l.racion.nombre }} · {{ l.racion.cl }} cl</span><span class="fila__sub">{{ l.racion.cantidad }} × {{ l.racion.precio_venta|eur }} · {% translate "cuesta" %} {{ l.coste|eur }} · {% translate "mínimo" %} {{ l.precio_minimo|eur }}</span></span>
+    <span class="fila__lado"><span class="fila__importe">{{ l.beneficio|eur }}</span><span class="fila__sub">{% translate "por ración" %}</span></span>
+  </div>
+  {% endif %}{% endfor %}
+</div>
+
+<div class="lista lista--junta" style="margin-top:var(--s-group)">
+  <div class="dato"><span class="dato__etiqueta">{% translate "Entra en total (sin IVA)" %}</span><span class="dato__valor mono">{{ r.ingresos_netos|eur }}</span></div>
+  <div class="dato"><span class="dato__etiqueta">{% translate "Cuesta el barril" %}</span><span class="dato__valor mono">{{ d.precio|eur }}</span></div>
+  <div class="dato"><span class="dato__etiqueta">{% translate "Coste por litro" %}</span><span class="dato__valor mono">{{ r.coste_litro|eur }}</span></div>
+  <div class="dato"><span class="dato__etiqueta">{% translate "Merma (se pierde)" %}</span><span class="dato__valor mono">{{ r.litros_perdidos|floatformat:1 }} L</span></div>
+  <div class="dato"><span class="dato__etiqueta">{% translate "Sirves" %}</span><span class="dato__valor mono">{{ r.litros_servidos|floatformat:1 }} L</span></div>
+  <div class="dato"><span class="dato__etiqueta">{% translate "Sin repartir (se pierde)" %}</span><span class="dato__valor mono">{{ r.litros_sobran|floatformat:1 }} L</span></div>
+</div>
+{% if cambio is not None %}
+<p class="msg{% if not sube %} msg--ok{% endif %}" role="status" style="margin-top:var(--s-group)">{% if sube %}<span aria-hidden="true">≠</span> {% else %}<span aria-hidden="true">?</span> {% endif %}{% blocktranslate with marca=d.marca c=cambio|floatformat:1 f=previo.fecha|date:"j M Y" %}Respecto a tu barril anterior de {{ marca }} ({{ f }}), el litro cuesta {{ c }} % de diferencia.{% endblocktranslate %}{% if sube %} {% blocktranslate with u=umbral|floatformat:0 %}Es una subida de más del {{ u }} %: pregunta a tu proveedor.{% endblocktranslate %}{% endif %}</p>
+{% endif %}
+{% elif r %}
+<p class="muted">{% blocktranslate with l=r.litros_utiles|floatformat:1 %}Quedan {{ l }} L que se pueden servir. Escribe cuántas raciones sacas de cada tipo.{% endblocktranslate %}</p>
+<div class="lista lista--junta">
+  {% for l in r.lineas %}<div class="dato"><span class="dato__etiqueta">{{ l.racion.nombre }} · {{ l.racion.cl }} cl</span><span class="dato__valor mono">{% translate "como mucho" %} {{ l.maximo }}</span></div>{% endfor %}
+</div>
+{% elif form.is_bound %}
+{% for e in form.non_field_errors %}<p class="msg" role="alert"><span aria-hidden="true">≠</span> {{ e }}</p>{% endfor %}
+{% for campo in form %}{% for e in campo.errors %}<p class="msg" role="alert"><span aria-hidden="true">≠</span> {{ campo.label }}: {{ e }}</p>{% endfor %}{% endfor %}
+{% else %}
+<p class="muted">{% translate "Escribe los litros y lo que cuesta el barril, y cuántas raciones sacas de cada tipo." %}</p>
+{% endif %}

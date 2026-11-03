@@ -3,7 +3,9 @@
 Plataforma de prototipos de IA para pymes. Un solo proyecto Django (`plataforma/`) que monta cada prototipo como app bajo su prefijo
 (`prototipos/<nombre>/`) y se despliega como un único proyecto de Vercel (`docs/adr/0001-una-plataforma-un-proyecto-vercel.md`).
 
-Prototipo actual: **Bar** (`/bar/`): albaranes y facturas de proveedores, qué está pagado y qué no cuadra. Glosario: `prototipos/bar/GLOSSARY.md`.
+Prototipos (cada uno es una herramienta aparte, con su app, su glosario y sus tests):
+- **Bar** (`/bar/`): albaranes y facturas de proveedores, qué está pagado y qué no cuadra. Glosario: `prototipos/bar/GLOSSARY.md`.
+- **Birròmetro** (`/birrometro/`): cuánto se gana con cada barril de cerveza (zurritos, cañas y jarras), sin IA. Glosario: `prototipos/birrometro/GLOSSARY.md`.
 
 ## Local
 

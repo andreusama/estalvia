@@ -7,7 +7,6 @@ urlpatterns = [
     path("", views.inicio, name="inicio"),
     path("subir/", views.subir, name="subir"),
     path("revisar/", views.revisar, name="revisar"),
-    path("birrometro/", views.birrometro_pantalla, name="birrometro"),
     path("pagos/", views.pagos_pantalla, name="pagos"),
     path("pagos/importar/", views.importar_extracto_vista, name="importar_extracto"),
     path("pagos/formato/", views.formato_banco, name="formato_banco"),

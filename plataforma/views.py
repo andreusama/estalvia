@@ -18,7 +18,12 @@ def portada(request):
             "nombre": _("Bar"),
             "descripcion": _("Albaranes y facturas de proveedores, qué está pagado y qué no cuadra."),
             "url": reverse("bar:inicio"),
-        }
+        },
+        {
+            "nombre": "Birròmetro",
+            "descripcion": _("Cuánto ganas con cada barril de cerveza: zurritos, cañas y jarras."),
+            "url": reverse("birrometro:inicio"),
+        },
     ]
     return render(request, "plataforma/portada.html", {"apps": apps})
 
