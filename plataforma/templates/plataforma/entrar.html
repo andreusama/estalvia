@@ -5,10 +5,13 @@
   <h1>{% translate "Entrar" %}</h1>
   <form method="post" class="group" style="margin-top:var(--s-group)">{% csrf_token %}
     <input type="hidden" name="next" value="{{ next }}">
-    <label class="eyebrow" for="password">{% translate "Contraseña" %}</label>
-    <input class="field" id="password" name="password" type="password" autocomplete="current-password" required autofocus>
-    {% if error %}<p class="msg" role="alert"><span aria-hidden="true">≠</span> {{ error }}</p>{% endif %}
+    <label class="eyebrow" for="id_username">{% translate "Nombre de usuario" %}</label>
+    <input class="field" id="id_username" name="username" type="text" value="{{ form.username.value|default:'' }}" autocomplete="username" autocapitalize="none" required autofocus>
+    <label class="eyebrow" for="id_password" style="margin-top:var(--s-group)">{% translate "Contraseña" %}</label>
+    <input class="field" id="id_password" name="password" type="password" autocomplete="current-password" required>
+    {% if form.errors %}<p class="msg" role="alert"><span aria-hidden="true">≠</span> {% translate "El usuario o la contraseña no son correctos." %}</p>{% endif %}
     <div class="group__actions"><button class="btn btn--primary" type="submit">{% translate "Entrar" %}</button></div>
   </form>
+  {% if registro_abierto %}<p class="muted" style="margin-top:var(--s-group)">{% translate "¿No tienes cuenta?" %} <a href="{% url 'registro' %}?next={{ next|urlencode }}">{% translate "Crear una cuenta" %}</a></p>{% endif %}
 </section>
 {% endblock %}

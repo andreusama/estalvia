@@ -6,7 +6,7 @@ import pytest
 
 from prototipos.bar import panel
 from prototipos.bar.models import Documento
-from prototipos.bar.tests.conftest import DATOS_FACTURA
+from prototipos.bar.tests.conftest import DATOS_FACTURA, usuario
 from prototipos.bar.tests.test_flujo import leido, subir
 from prototipos.bar.tests.test_pagos import factura, importar
 
@@ -20,7 +20,7 @@ def test_sin_datos_no_se_inventa_nada(web):
     revisar = web.get("/bar/revisar/").content.decode()
     assert "Todo en orden este mes" in revisar and "ejemplo" not in revisar.lower()
     assert 'id="tab-contador"' in revisar and "hidden" in revisar.split('id="tab-contador"')[1][:80]  # contador oculto
-    assert panel.cifras()["contador"] == 0
+    assert panel.cifras(usuario())["contador"] == 0
 
 
 def test_resumen_cuenta_pagadas_por_revisar_y_sin_pagar_con_datos_reales(web):
@@ -30,7 +30,7 @@ def test_resumen_cuenta_pagadas_por_revisar_y_sin_pagar_con_datos_reales(web):
     from prototipos.bar import pagos
 
     pagos.pagar_en_efectivo(pagada)
-    c = panel.cifras()
+    c = panel.cifras(usuario())
     assert (c["pagadas"], c["por_revisar"], c["sin_pagar"]) == (1, 1, 2)
     html = web.get("/bar/").content.decode()
     assert "Pagadas" in html and "Por revisar" in html and "Sin pagar" in html and "summary__bar" in html
@@ -44,7 +44,7 @@ def test_revisar_lista_lo_que_necesita_una_accion_y_el_contador_lo_cuenta(web, i
         "28/10/2026;TRANSF A DISTRIBUCIONES EJEMPLO SL FRA F26-00009;-12,69;1,00\n"
         "28/10/2026;TRANSF A DISTRIBUCIONES EJEMPLO SL FRA F26-00009;-12,69;2,00\n"
     )
-    c = panel.cifras()
+    c = panel.cifras(usuario())
     assert [x.pk for x in c["docs"]] == [d.pk] and len(c["avisos"]) == 1 and c["contador"] == 2
     html = web.get("/bar/revisar/").content.decode()
     assert "2 cosas por revisar" in html and "Posible cobro doble" in html and "Por revisar" in html
@@ -57,8 +57,8 @@ def test_los_documentos_que_no_cuadran_van_primero_en_revisar(web, ia):
     mal = Documento.objects.get()
     web.post(f"/bar/documentos/{mal.pk}/leer/")
     ok = factura(numero="F26-00007", total="500.00", estado=Documento.Estado.PROCESADO)
-    orden = [d.pk for d in panel.documentos_por_revisar()]
-    assert orden == [mal.pk, ok.pk] and panel.documentos_por_revisar()[0].fallos
+    orden = [d.pk for d in panel.documentos_por_revisar(usuario())]
+    assert orden == [mal.pk, ok.pk] and panel.documentos_por_revisar(usuario())[0].fallos
     assert "No cuadra" in web.get("/bar/revisar/").content.decode()
 
 

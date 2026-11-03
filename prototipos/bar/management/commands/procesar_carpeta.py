@@ -1,11 +1,12 @@
 """Sube y lee todas las fotos y PDFs de una carpeta (o un solo archivo) sin pasar por el formulario.
 
-python manage.py procesar_carpeta ruta/a/fotos [--sin-leer]
+python manage.py procesar_carpeta ruta/a/fotos --usuario nombre [--sin-leer]
 """
 
 import mimetypes
 from pathlib import Path
 
+from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 
 from prototipos.bar import servicios
@@ -21,9 +22,14 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("ruta", help="Carpeta con fotos/PDF, o un archivo")
+        parser.add_argument("--usuario", required=True, help="Nombre de usuario al que pertenecen los documentos")
         parser.add_argument("--sin-leer", action="store_true", help="Solo subir, sin llamar a la IA")
 
-    def handle(self, *args, ruta, sin_leer, **opts):
+    def handle(self, *args, ruta, usuario, sin_leer, **opts):
+        try:
+            propietario = get_user_model().objects.get(username=usuario)
+        except get_user_model().DoesNotExist:
+            raise CommandError(f"No existe el usuario «{usuario}». Créalo con crear_usuario.") from None
         base = Path(ruta).expanduser()
         if not base.exists():
             raise CommandError(f"No existe {base}")
@@ -33,7 +39,7 @@ class Command(BaseCommand):
         for p in archivos:
             mime = mimetypes.guess_type(p.name)[0] or ""
             try:
-                doc, nuevo = servicios.crear_documento(p.name, mime, p.read_bytes())
+                doc, nuevo = servicios.crear_documento(propietario, p.name, mime, p.read_bytes())
             except servicios.ArchivoNoValido as e:
                 self.stderr.write(f"✗ {p.name}: {e}")
                 continue

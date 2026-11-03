@@ -8,6 +8,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from prototipos.bar import extracto, pagos
 from prototipos.bar.models import Documento, Movimiento, Pago, PerfilImportacion
+from prototipos.bar.tests.conftest import usuario
 
 pytestmark = pytest.mark.django_db
 
@@ -26,18 +27,20 @@ EXTRACTO = (
 
 
 def factura(numero="F26-00001", total="12.69", proveedor=PROV, estado=Documento.Estado.REVISADO, **kw):
+    propietario = kw.pop("propietario", None) or usuario()
     return Documento.objects.create(
-        archivo=b"x", nombre_archivo="f.png", tipo_mime="image/png", sha256=numero, tipo=Documento.Tipo.FACTURA,
-        estado=estado, proveedor_nombre=proveedor, numero=numero, total=D(total), fecha=date(2026, 10, 21), **kw,
+        propietario=propietario, archivo=b"x", nombre_archivo="f.png", tipo_mime="image/png", sha256=numero,
+        tipo=Documento.Tipo.FACTURA, estado=estado, proveedor_nombre=proveedor, numero=numero, total=D(total),
+        fecha=date(2026, 10, 21), **kw,
     )  # fmt: skip
 
 
 def analizar():
-    return pagos.analizar(pagos.movimientos_por_mirar(), pagos.facturas())
+    return pagos.analizar(pagos.movimientos_por_mirar(usuario()), pagos.facturas(usuario()))
 
 
 def importar(texto=EXTRACTO):
-    return extracto.importar_extracto(PerfilImportacion.por_defecto(), "oct.csv", texto.encode())
+    return extracto.importar_extracto(PerfilImportacion.por_defecto(usuario()), "oct.csv", texto.encode())
 
 
 def tipos():
@@ -97,7 +100,7 @@ def test_confirmar_deja_la_factura_pagada_y_un_segundo_cobro_pasa_a_doble():
     importar()
     primero = analizar()[0]
     pagos.confirmar_pago(primero.movimiento, f)
-    f = pagos.facturas()[0]
+    f = pagos.facturas(usuario())[0]
     assert f.esta_pagada and f.pagado == D("12.69")
     assert (28, pagos.DOBLE) in tipos() and (28, pagos.EXACTO) not in tipos()
     assert f.eventos.filter(tipo="pagado").exists()
@@ -106,7 +109,7 @@ def test_confirmar_deja_la_factura_pagada_y_un_segundo_cobro_pasa_a_doble():
 def test_pagada_en_efectivo_cubre_lo_que_falta():
     f = factura()
     pagos.pagar_en_efectivo(f)
-    assert pagos.facturas()[0].esta_pagada and Pago.objects.get().metodo == Pago.Metodo.EFECTIVO
+    assert pagos.facturas(usuario())[0].esta_pagada and Pago.objects.get().metodo == Pago.Metodo.EFECTIVO
 
 
 def test_un_proveedor_con_palabras_comunes_no_se_confunde():
@@ -183,7 +186,7 @@ def test_el_formato_del_banco_se_edita_sin_guardar_la_cuenta_completa(web):
     assert web.post("/bar/pagos/formato/", {**_perfil(), "cuenta_final": "ES76 2100 0168"}).status_code == 200
     r = web.post("/bar/pagos/formato/", {**_perfil(), "cuenta_final": "ABCD"})
     assert r.status_code == 200 and "4 últimas cifras" in r.content.decode()
-    assert PerfilImportacion.por_defecto().cuenta_final == ""
+    assert PerfilImportacion.por_defecto(usuario()).cuenta_final == ""
     assert web.post("/bar/pagos/formato/", {**_perfil(), "cuenta_final": "4820"}).status_code == 302
     html = web.get("/bar/pagos/").content.decode()
     assert "···· 4820" in html and "ES76" not in html

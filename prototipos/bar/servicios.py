@@ -23,7 +23,7 @@ def registrar(doc: Documento, tipo: str, detalle: str = "") -> None:
     Evento.objects.create(documento=doc, tipo=tipo, detalle=detalle[:2000])
 
 
-def crear_documento(nombre: str, mime: str, contenido: bytes) -> tuple[Documento, bool]:
+def crear_documento(usuario, nombre: str, mime: str, contenido: bytes) -> tuple[Documento, bool]:
     """Guarda el archivo original. Devuelve (documento, es_nuevo); un archivo idéntico no se guarda dos veces."""
     if mime not in MIMES:
         raise ArchivoNoValido("Solo se admiten fotos (JPG, PNG, WebP) y PDF.")
@@ -32,11 +32,13 @@ def crear_documento(nombre: str, mime: str, contenido: bytes) -> tuple[Documento
     if len(contenido) > MAX_BYTES:
         raise ArchivoNoValido("El archivo pesa más de 4 MB. Haz la foto con menos calidad o recórtala.")
     sha = hashlib.sha256(contenido).hexdigest()
-    existente = Documento.objects.filter(sha256=sha).first()
+    existente = Documento.objects.filter(propietario=usuario, sha256=sha).first()
     if existente:
         return existente, False
     with transaction.atomic():
-        doc = Documento.objects.create(archivo=contenido, nombre_archivo=nombre[:255], tipo_mime=mime, sha256=sha)
+        doc = Documento.objects.create(
+            propietario=usuario, archivo=contenido, nombre_archivo=nombre[:255], tipo_mime=mime, sha256=sha
+        )
         registrar(doc, "subido", f"{nombre} ({len(contenido) // 1024} KB)")
     return doc, True
 
@@ -133,19 +135,18 @@ def _nif(texto: str) -> str:
 
 def vincular_proveedor(doc: Documento) -> None:
     """Al revisar, enlaza el documento con un proveedor existente (por NIF, o por nombre) o crea uno."""
+    suyos = Proveedor.objects.filter(propietario=doc.propietario)
     nombre, nif = doc.proveedor_nombre.strip(), _nif(doc.proveedor_nif)
     if not nombre and not nif:
         doc.proveedor = None
         return
     prov = None
     if nif:
-        prov = next(
-            (p for p in Proveedor.objects.filter(nif__isnull=False).exclude(nif="") if _nif(p.nif) == nif), None
-        )
+        prov = next((p for p in suyos.filter(nif__isnull=False).exclude(nif="") if _nif(p.nif) == nif), None)
     if prov is None and nombre:
-        prov = Proveedor.objects.filter(nombre__iexact=nombre).first()
+        prov = suyos.filter(nombre__iexact=nombre).first()
     if prov is None:
-        prov = Proveedor.objects.create(nombre=nombre or nif, nif=nif)
+        prov = Proveedor.objects.create(propietario=doc.propietario, nombre=nombre or nif, nif=nif)
     elif nif and not prov.nif:
         prov.nif = nif
         prov.save(update_fields=["nif"])

@@ -9,7 +9,7 @@ Prototipo actual: **Bar** (`/bar/`): albaranes y facturas de proveedores, qué e
 
 ```
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-cp .env.example .env    # rellenar SECRET_KEY y ESTALVIA_PASSWORD
+cp .env.example .env    # rellenar SECRET_KEY (y ESTALVIA_CODIGO_INVITACION si quieres invitar)
 DEBUG=1 .venv/bin/python manage.py runserver    # http://localhost:8000
 .venv/bin/pytest && .venv/bin/ruff check .
 ```
@@ -22,16 +22,25 @@ Variables de entorno:
 | Variable | Para qué |
 |---|---|
 | `SECRET_KEY` o `ESTALVIA_WEB_SECRET` | Django, 32+ caracteres. Sin ella el despliegue falla a propósito. |
-| `ESTALVIA_PASSWORD` o `ESTALVIA_WEB_PASSWORD` | Contraseña única. Sin ella nadie puede entrar. |
+| `ESTALVIA_CODIGO_INVITACION` | Código para crear cuenta en `/registro/`. Sin él el registro está cerrado. |
 | `DATABASE_URL` | PostgreSQL (Neon u otro; la integración de Vercel Marketplace la crea). Sin ella el Bar avisa de que falta la base de datos. |
 | `ANTHROPIC_API_KEY` | Lectura de documentos con la IA (Sonnet). Sin ella los documentos quedan «No se pudo leer». |
 | `ALLOWED_HOSTS` | Solo si usas dominio propio (separado por comas). |
+
+## Cuentas de usuario
+Cada persona tiene su cuenta y ve solo lo suyo (`docs/adr/0002-cuentas-de-usuario-y-datos-por-usuario.md`).
+```
+.venv/bin/python manage.py crear_usuario nombre             # crea la cuenta (pide la contraseña)
+.venv/bin/python manage.py crear_usuario nombre --adoptar   # además se queda con lo subido antes de las cuentas
+```
+Para invitar a alguien: pon `ESTALVIA_CODIGO_INVITACION` en Vercel y dale el enlace de `/registro/` y el código.
+Contra la base de Vercel, el mismo comando con `DATABASE_URL=… .venv/bin/python manage.py crear_usuario …`.
 
 ## Bar: probar con documentos reales
 
 ```
 .venv/bin/python manage.py migrate
-.venv/bin/python manage.py procesar_carpeta ruta/a/fotos    # sube y lee una carpeta (o un archivo) sin pasar por la web
+.venv/bin/python manage.py procesar_carpeta ruta/a/fotos --usuario nombre    # sube y lee una carpeta (o un archivo) sin pasar por la web
 DEBUG=1 .venv/bin/python manage.py runserver                 # y entra en /bar/
 ```
 Los originales y las lecturas se guardan en la base de datos (`db.sqlite3` en local, ignorada por git). Los tests no llaman a la IA.

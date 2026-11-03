@@ -7,10 +7,10 @@ from .comprobaciones import comprobar
 from .models import Documento
 
 
-def documentos_por_revisar() -> list[Documento]:
+def documentos_por_revisar(usuario) -> list[Documento]:
     """Documentos que esperan a una persona o no se pudieron leer; primero los que no cuadran, luego por importe."""
     docs = list(
-        Documento.objects.filter(estado__in=[Documento.Estado.PROCESADO, Documento.Estado.ERROR])
+        Documento.objects.filter(propietario=usuario, estado__in=[Documento.Estado.PROCESADO, Documento.Estado.ERROR])
         .defer("archivo", "respuesta_ia")
         .prefetch_related("lineas", "desglose_iva")
     )
@@ -20,11 +20,11 @@ def documentos_por_revisar() -> list[Documento]:
     return docs
 
 
-def cifras() -> dict:
+def cifras(usuario) -> dict:
     """Todo sale de documentos y movimientos reales. El contador cuenta lo que requiere una acción tuya."""
-    docs = documentos_por_revisar()
-    facturas = banco.facturas()
-    veredictos = banco.analizar(banco.movimientos_por_mirar(), facturas)
+    docs = documentos_por_revisar(usuario)
+    facturas = banco.facturas(usuario)
+    veredictos = banco.analizar(banco.movimientos_por_mirar(usuario), facturas)
     avisos = [v for v in veredictos if v.estilo == "diff"]  # cobro doble, importe distinto, pago sin factura
     return {
         "docs": docs,

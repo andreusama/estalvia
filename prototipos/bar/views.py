@@ -41,6 +41,11 @@ def necesita_bd(vista):
     return envuelta
 
 
+def _documentos(request):
+    """Solo los documentos de quien ha entrado: el de otra persona es un 404, no un «prohibido»."""
+    return Documento.objects.filter(propietario=request.user)
+
+
 def _ajax(request) -> bool:
     return request.headers.get("X-Requested-With") == "fetch"
 
@@ -54,11 +59,11 @@ def _url_documento(d) -> str:
 @necesita_bd
 def inicio(request):
     """Resumen: cifras reales (pagadas, por revisar, sin pagar), acceso a Pagos y los documentos subidos."""
-    docs = list(Documento.objects.defer("archivo", "respuesta_ia"))
+    docs = list(_documentos(request).defer("archivo", "respuesta_ia"))
     for d in docs:
         d.estilo = ESTILO_ESTADO[d.estado]
         d.url = _url_documento(d)
-    c = panel.cifras()
+    c = panel.cifras(request.user)
     return render(
         request,
         "bar/inicio.html",
@@ -75,7 +80,7 @@ def inicio(request):
 @necesita_bd
 def revisar(request):
     """Revisar: lo que necesita una acción tuya: documentos por revisar y avisos de pagos."""
-    c = panel.cifras()
+    c = panel.cifras(request.user)
     for d in c["docs"]:
         d.url = _url_documento(d)
     return render(request, "bar/revisar.html", {"c": c})
@@ -87,7 +92,7 @@ def confirmar(request, pk):
 
     Si algo es dudoso o no cuadra, no se ofrece confirmar aquí: hay que revisarlo en la ficha completa.
     """
-    doc = get_object_or_404(Documento.objects.defer("archivo", "respuesta_ia"), pk=pk)
+    doc = get_object_or_404(_documentos(request).defer("archivo", "respuesta_ia"), pk=pk)
     if doc.estado != Documento.Estado.PROCESADO:
         return redirect("bar:documento", pk=doc.pk)
     dudosos, _ = _dudosos(doc)
@@ -108,7 +113,7 @@ def subir(request):
     resultados = []
     for f in request.FILES.getlist("archivo"):
         try:
-            doc, nuevo = servicios.crear_documento(f.name, f.content_type, f.read())
+            doc, nuevo = servicios.crear_documento(request.user, f.name, f.content_type, f.read())
             resultados.append(
                 {
                     "ok": True,
@@ -135,7 +140,7 @@ def subir(request):
 @necesita_bd
 @require_POST
 def leer(request, pk):
-    doc = get_object_or_404(Documento, pk=pk)
+    doc = get_object_or_404(_documentos(request), pk=pk)
     servicios.leer(doc)
     destino = _url_documento(doc)
     if _ajax(request):
@@ -145,7 +150,7 @@ def leer(request, pk):
 
 @necesita_bd
 def archivo(request, pk):
-    doc = get_object_or_404(Documento, pk=pk)
+    doc = get_object_or_404(_documentos(request), pk=pk)
     resp = HttpResponse(bytes(doc.archivo), content_type=doc.tipo_mime)
     resp["Content-Disposition"] = f"inline; filename*=UTF-8''{quote(doc.nombre_archivo)}"
     resp["Cache-Control"] = "private, max-age=300"
@@ -178,7 +183,7 @@ def _registrar_cambios(doc, form, etiqueta=""):
 
 @necesita_bd
 def documento(request, pk):
-    doc = get_object_or_404(Documento.objects.defer("archivo", "respuesta_ia"), pk=pk)
+    doc = get_object_or_404(_documentos(request).defer("archivo", "respuesta_ia"), pk=pk)
     contexto = {"doc": doc, "estilo": ESTILO_ESTADO[doc.estado]}
     if doc.estado not in (Documento.Estado.PROCESADO, Documento.Estado.REVISADO):
         return render(request, "bar/documento_leer.html", contexto)
@@ -250,9 +255,9 @@ AVISOS_PAGOS = {
 @necesita_bd
 def pagos_pantalla(request):
     hoy = timezone.localdate()
-    perfil = PerfilImportacion.por_defecto()
-    todas = banco.facturas()
-    veredictos = banco.analizar(banco.movimientos_por_mirar(), todas)
+    perfil = PerfilImportacion.por_defecto(request.user)
+    todas = banco.facturas(request.user)
+    veredictos = banco.analizar(banco.movimientos_por_mirar(request.user), todas)
     for f in todas:
         f.vencida = banco.vencida(f, hoy)
     errores = request.session.pop("errores_extracto", [])
@@ -268,7 +273,7 @@ def pagos_pantalla(request):
             "avisos": [v for v in veredictos if not v.confirmable],
             "sin_pagar": [f for f in todas if not f.esta_pagada and f.total is not None],
             "pagadas": [f for f in todas if f.esta_pagada],
-            "n_movimientos": Movimiento.objects.count(),
+            "n_movimientos": Movimiento.objects.filter(perfil__propietario=request.user).count(),
             "resumen": resumen,
             "errores_extracto": errores,
             "mensaje": AVISOS_PAGOS.get(request.GET.get("hecho", "")),
@@ -279,7 +284,7 @@ def pagos_pantalla(request):
 @necesita_bd
 @require_POST
 def importar_extracto_vista(request):
-    perfil = PerfilImportacion.por_defecto()
+    perfil = PerfilImportacion.por_defecto(request.user)
     archivo_csv = request.FILES.get("extracto")
     if not archivo_csv:
         request.session["errores_extracto"] = ["No has elegido ningún fichero."]
@@ -299,9 +304,14 @@ def importar_extracto_vista(request):
 @necesita_bd
 @require_POST
 def confirmar_pago_vista(request, pk):
-    mov = get_object_or_404(Movimiento, pk=pk, pago__isnull=True)
+    mov = get_object_or_404(Movimiento, pk=pk, perfil__propietario=request.user, pago__isnull=True)
     veredicto = next(
-        (v for v in banco.analizar(banco.movimientos_por_mirar(), banco.facturas()) if v.movimiento.pk == mov.pk), None
+        (
+            v
+            for v in banco.analizar(banco.movimientos_por_mirar(request.user), banco.facturas(request.user))
+            if v.movimiento.pk == mov.pk
+        ),
+        None,
     )
     if not veredicto or not veredicto.confirmable:  # no se fía del formulario: se vuelve a comprobar
         return redirect(f"{reverse('bar:pagos')}?hecho=no_valido")
@@ -313,7 +323,9 @@ def confirmar_pago_vista(request, pk):
 @necesita_bd
 @require_POST
 def pago_efectivo_vista(request, pk):
-    factura = next((f for f in banco.facturas() if f.pk == pk and not f.esta_pagada and f.total is not None), None)
+    factura = next(
+        (f for f in banco.facturas(request.user) if f.pk == pk and not f.esta_pagada and f.total is not None), None
+    )
     if factura is None:
         raise Http404
     with transaction.atomic():
@@ -324,7 +336,7 @@ def pago_efectivo_vista(request, pk):
 @necesita_bd
 @require_POST
 def ignorar_movimiento(request, pk):
-    mov = get_object_or_404(Movimiento, pk=pk, pago__isnull=True)
+    mov = get_object_or_404(Movimiento, pk=pk, perfil__propietario=request.user, pago__isnull=True)
     mov.ignorado_en = timezone.now()
     mov.save(update_fields=["ignorado_en"])
     return redirect(f"{reverse('bar:pagos')}?hecho=ignorado")
@@ -332,7 +344,7 @@ def ignorar_movimiento(request, pk):
 
 @necesita_bd
 def formato_banco(request):
-    perfil = PerfilImportacion.por_defecto()
+    perfil = PerfilImportacion.por_defecto(request.user)
     form = PerfilImportacionForm(request.POST or None, instance=perfil)
     if request.method == "POST" and form.is_valid():
         form.save()

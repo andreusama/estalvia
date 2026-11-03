@@ -14,7 +14,7 @@
 </head>
 <body class="{% block bodyclass %}{% endblock %}">
 {% block shell %}<main class="page">
-  {% if request.session.estalvia_ok %}
+  {% if request.user.is_authenticated %}
   <nav class="topbar" aria-label="{% translate 'Navegación' %}">
     <a class="brand" href="{% url 'portada' %}">Estalvia</a>
     <form method="post" action="{% url 'salir' %}">{% csrf_token %}<button class="btn btn--secondary" type="submit">{% translate "Salir" %}</button></form>

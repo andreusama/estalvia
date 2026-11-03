@@ -1,9 +1,16 @@
+from django.conf import settings
 from django.db import models
 
 from .numeros import normalizar_referencia
 
 
+def _propietario():
+    """Cada fila es de un usuario. Nulo solo en lo que existía antes de las cuentas (se asigna con `crear_usuario`)."""
+    return models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT, related_name="+")
+
+
 class Proveedor(models.Model):
+    propietario = _propietario()
     nombre = models.CharField(max_length=200)
     nif = models.CharField(max_length=20, blank=True, db_index=True)
     creado = models.DateTimeField(auto_now_add=True)
@@ -30,6 +37,7 @@ class Documento(models.Model):
         ERROR = "error", "No se pudo leer"
         REVISADO = "revisado", "Revisado"
 
+    propietario = _propietario()
     # Archivo original: en la base de datos porque Vercel no tiene disco (ADR 0003 del bar)
     archivo = models.BinaryField(editable=False)
     nombre_archivo = models.CharField(max_length=255)
@@ -145,6 +153,7 @@ class PerfilImportacion(models.Model):
     MILES = [("", "Ninguno"), (".", "Punto ( 1.240,00 )"), (",", "Coma ( 1,240.00 )"), (" ", "Espacio ( 1 240,00 )")]
     DECIMALES = [(",", "Coma ( 1240,00 )"), (".", "Punto ( 1240.00 )")]
 
+    propietario = _propietario()
     nombre = models.CharField(max_length=80, default="Mi banco")
     cuenta_final = models.CharField(max_length=4, blank=True)  # solo las últimas cifras
     separador = models.CharField(max_length=4, choices=SEPARADORES, default="auto")
@@ -162,8 +171,8 @@ class PerfilImportacion(models.Model):
         return self.nombre
 
     @classmethod
-    def por_defecto(cls):
-        return cls.objects.first() or cls.objects.create()
+    def por_defecto(cls, usuario):
+        return cls.objects.filter(propietario=usuario).first() or cls.objects.create(propietario=usuario)
 
 
 class Movimiento(models.Model):

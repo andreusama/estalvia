@@ -1,7 +1,7 @@
 """Ajustes de la plataforma Estalvia (un solo proyecto de Vercel; ver docs/adr/0001).
 
-Secretos y contraseña vienen del entorno (Vercel) o de `.env` en local. Sin base de datos todavía: las sesiones van
-firmadas en la cookie. Si falta SECRET_KEY no arranca; si falta la contraseña, el acceso queda cerrado (nunca abierto).
+Secretos y código de invitación vienen del entorno (Vercel) o de `.env` en local. Las sesiones van firmadas en la
+cookie. Si falta SECRET_KEY no arranca; sin sesión de usuario no se ve nada (nunca abierto).
 """
 
 import os
@@ -36,14 +36,16 @@ if len(SECRET_KEY) < 32:
     else:
         raise ImproperlyConfigured("SECRET_KEY (o ESTALVIA_WEB_SECRET) falta o tiene menos de 32 caracteres")
 
-# Contraseña única de la plataforma (usuarios reales vendrán después). Vacía = nadie entra.
-ESTALVIA_PASSWORD = os.environ.get("ESTALVIA_PASSWORD") or os.environ.get("ESTALVIA_WEB_PASSWORD", "")
+# Código de invitación para crear una cuenta en /registro/. Vacío = el registro está cerrado (solo `crear_usuario`).
+ESTALVIA_CODIGO_INVITACION = os.environ.get("ESTALVIA_CODIGO_INVITACION", "")
 
 ALLOWED_HOSTS = [".vercel.app", "localhost", "127.0.0.1"] + [
     h for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h
 ]
 
 INSTALLED_APPS = [
+    "django.contrib.contenttypes",
+    "django.contrib.auth",
     "django.contrib.staticfiles",
     "plataforma",
     "prototipos.bar",
@@ -51,11 +53,12 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "plataforma.acceso.ExigeContrasena",
+    "plataforma.acceso.ExigeUsuario",
 ]
 ROOT_URLCONF = "plataforma.urls"
 WSGI_APPLICATION = "plataforma.wsgi.application"
@@ -117,6 +120,13 @@ def _base_de_datos() -> dict:
 
 
 DATABASES = _base_de_datos()
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 10}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
 
 SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = EN_VERCEL

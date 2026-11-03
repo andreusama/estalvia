@@ -7,6 +7,7 @@ import pytest
 
 from prototipos.bar import extracto
 from prototipos.bar.models import Movimiento, PerfilImportacion
+from prototipos.bar.tests.conftest import usuario
 
 pytestmark = pytest.mark.django_db
 
@@ -20,7 +21,7 @@ CSV = (
 
 @pytest.fixture
 def perfil():
-    return PerfilImportacion.por_defecto()
+    return PerfilImportacion.por_defecto(usuario())
 
 
 def test_lee_un_extracto_a_la_espanola(perfil):
@@ -46,7 +47,7 @@ def test_admite_ficheros_en_windows_latin1(perfil):
 
 
 def test_detecta_la_coma_como_separador_y_respeta_las_comillas():
-    perfil = PerfilImportacion.por_defecto()
+    perfil = PerfilImportacion.por_defecto(usuario())
     perfil.sep_miles, perfil.sep_decimal = ",", "."
     texto = 'Fecha,Concepto,Importe,Saldo\n01/10/2026,"PAGO, CON COMA",-1,240.50,100.00\n'.replace(
         "-1,240.50", '"-1,240.50"'

@@ -101,10 +101,12 @@ def esta_pagada(factura: Documento) -> bool:
     return factura.total is not None and pagado(factura) >= factura.total
 
 
-def facturas() -> list[Documento]:
+def facturas(usuario) -> list[Documento]:
     """Facturas leídas (revisadas o no), con sus pagos. Las no revisadas se tratan como provisionales."""
     docs = Documento.objects.filter(
-        tipo=Documento.Tipo.FACTURA, estado__in=[Documento.Estado.PROCESADO, Documento.Estado.REVISADO]
+        propietario=usuario,
+        tipo=Documento.Tipo.FACTURA,
+        estado__in=[Documento.Estado.PROCESADO, Documento.Estado.REVISADO],
     ).defer("archivo", "respuesta_ia")
     docs = list(docs.prefetch_related("pagos").order_by("fecha", "id"))
     for d in docs:
@@ -114,9 +116,13 @@ def facturas() -> list[Documento]:
     return docs
 
 
-def movimientos_por_mirar() -> list[Movimiento]:
+def movimientos_por_mirar(usuario) -> list[Movimiento]:
     """Movimientos que aún no son un pago confirmado ni se han marcado como vistos."""
-    return list(Movimiento.objects.filter(pago__isnull=True, ignorado_en__isnull=True).order_by("fecha", "id"))
+    return list(
+        Movimiento.objects.filter(perfil__propietario=usuario, pago__isnull=True, ignorado_en__isnull=True).order_by(
+            "fecha", "id"
+        )
+    )
 
 
 def analizar(movimientos: list[Movimiento], todas: list[Documento]) -> list[Veredicto]:

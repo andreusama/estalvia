@@ -2,6 +2,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.test import Client
 
 from plataforma.settings_tests import CLAVE
@@ -76,11 +77,24 @@ def ia(monkeypatch):
     return instalar
 
 
+def usuario(nombre="ana"):
+    """Un usuario de prueba (se crea la primera vez). Los datos de los tests son de «ana» si no se dice otra cosa."""
+    return get_user_model().objects.get_or_create(username=nombre)[0]
+
+
+def cliente_de(nombre):
+    """Un navegador con la sesión de ese usuario."""
+    u = usuario(nombre)
+    u.set_password(CLAVE)
+    u.save()
+    c = Client(HTTP_HOST="localhost")
+    assert c.login(username=nombre, password=CLAVE)
+    return c
+
+
 @pytest.fixture
 def web():
-    c = Client(HTTP_HOST="localhost")
-    c.post("/entrar/", {"password": CLAVE})
-    return c
+    return cliente_de("ana")
 
 
 PNG = bytes.fromhex(

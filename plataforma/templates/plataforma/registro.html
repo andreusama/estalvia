@@ -1,0 +1,20 @@
+{% extends "plataforma/base.html" %}{% load i18n %}
+{% block title %}{% translate "Crear una cuenta" %} · Estalvia{% endblock %}
+{% block content %}
+<section class="section narrow">
+  <h1>{% translate "Crear una cuenta" %}</h1>
+  <p class="muted" style="margin-top:var(--s-near)">{% translate "Tus documentos y los movimientos de tu banco son solo tuyos: nadie más que entre en la aplicación los verá." %}</p>
+  <form method="post" class="group" style="margin-top:var(--s-group)">{% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {% for campo in form %}
+    <label class="eyebrow" for="{{ campo.id_for_label }}"{% if not forloop.first %} style="margin-top:var(--s-group)"{% endif %}>{{ campo.label }}</label>
+    {{ campo }}
+    {% if campo.help_text %}<p class="muted">{{ campo.help_text|safe }}</p>{% endif %}
+    {% for e in campo.errors %}<p class="msg" role="alert"><span aria-hidden="true">≠</span> {{ e }}</p>{% endfor %}
+    {% endfor %}
+    {% for e in form.non_field_errors %}<p class="msg" role="alert"><span aria-hidden="true">≠</span> {{ e }}</p>{% endfor %}
+    <div class="group__actions"><button class="btn btn--primary" type="submit">{% translate "Crear cuenta" %}</button></div>
+  </form>
+  <p class="muted" style="margin-top:var(--s-group)"><a href="{% url 'entrar' %}">{% translate "Ya tengo cuenta" %}</a></p>
+</section>
+{% endblock %}

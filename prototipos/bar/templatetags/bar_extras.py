@@ -23,4 +23,4 @@ def tabbar(context):
     request = context["request"]
     nombre = request.resolver_match.url_name if request.resolver_match else ""
     activa = nombre if nombre in ("revisar", "subir") else "inicio"
-    return {"activa": activa, "n": panel.cifras()["contador"]}
+    return {"activa": activa, "n": panel.cifras(request.user)["contador"]}
