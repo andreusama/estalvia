@@ -15,7 +15,7 @@ from .forms import RegistroForm
 def portada(request):
     apps = [
         {
-            "nombre": _("Bar"),
+            "nombre": _("Relacionar albaranes y facturas"),
             "descripcion": _("Albaranes y facturas de proveedores, qué está pagado y qué no cuadra."),
             "url": reverse("bar:inicio"),
         },
