@@ -12,15 +12,15 @@ from prototipos.birrometro.tests.conftest import cliente_de, usuario
 
 pytestmark = pytest.mark.django_db
 
-# 30 L con un 8 % de merma = 27,6 L servibles. 20 jarras (8 L) + 60 cañas (12 L) + 40 zurritos (6 L) = 26 L
+# 30 L con un 8 % de merma = 27,6 L servibles. 20 jarras (8 L) + 60 cañas (12 L) + 40 zuritos (6 L) = 26 L
 DATOS = {
     "marca": "Marca de Prueba", "litros": "30", "fecha": "2026-10-01", "precio": "90,00", "merma": "8",
     "iva_venta": "10",
-    "zurrito_cl": "15", "zurrito_pvp": "1.80", "zurrito_n": "40",
+    "zurito_cl": "15", "zurito_pvp": "1.80", "zurito_n": "40",
     "cana_cl": "20", "cana_pvp": "2.50", "cana_n": "60",
     "jarra_cl": "40", "jarra_pvp": "4.00", "jarra_n": "20",
 }  # fmt: skip
-RACIONES = [Racion("Zurrito", 15, D("1.80"), 40), Racion("Caña", 20, D("2.50"), 60), Racion("Jarra", 40, D("4.00"), 20)]
+RACIONES = [Racion("Zurito", 15, D("1.80"), 40), Racion("Caña", 20, D("2.50"), 60), Racion("Jarra", 40, D("4.00"), 20)]
 
 
 def test_el_reparto_del_barril_es_exacto():
@@ -33,11 +33,11 @@ def test_el_reparto_del_barril_es_exacto():
 
 def test_cada_racion_tiene_su_coste_y_lo_que_ganas():
     r = birrometro.calcular(D("30"), D("90.00"), RACIONES, D("8"), D("10"))
-    zurrito, cana, jarra = r.lineas
+    zurito, cana, jarra = r.lineas
     # el barril cuesta 90 / 27,6 L = 3,2609 €/L útil
-    assert (zurrito.coste, cana.coste, jarra.coste) == (D("0.49"), D("0.65"), D("1.30"))
+    assert (zurito.coste, cana.coste, jarra.coste) == (D("0.49"), D("0.65"), D("1.30"))
     assert (jarra.venta_neta, jarra.beneficio) == (D("3.64"), D("2.33"))
-    assert (zurrito.maximo, cana.maximo, jarra.maximo) == (184, 138, 69)
+    assert (zurito.maximo, cana.maximo, jarra.maximo) == (184, 138, 69)
     assert jarra.precio_minimo == D("1.44")  # 1,3043 × 1,10 = 1,4348 → hacia arriba
 
 
@@ -61,7 +61,7 @@ def test_cambio_de_precio_respecto_al_anterior():
 def test_la_pagina_calcula_con_los_datos_de_la_url(web):
     html = web.get("/birrometro/", DATOS).content.decode()
     assert "Ganas" in html and "184,55" in html and "274,55" in html
-    for tipo in ("Zurrito · 15 cl", "Caña · 20 cl", "Jarra · 40 cl"):
+    for tipo in ("Zurito · 15 cl", "Caña · 20 cl", "Jarra · 40 cl"):
         assert tipo in html
 
 
@@ -73,7 +73,7 @@ def test_no_deja_repartir_mas_litros_de_los_que_hay(web):
 
 
 def test_sin_raciones_enseña_cuantas_cabrian(web):
-    html = web.get("/birrometro/", {**DATOS, "zurrito_n": "", "cana_n": "", "jarra_n": ""}).content.decode()
+    html = web.get("/birrometro/", {**DATOS, "zurito_n": "", "cana_n": "", "jarra_n": ""}).content.decode()
     assert "Quedan 27,6 L" in html and "como mucho 69" in html and "Beneficio del barril" not in html
 
 
@@ -92,7 +92,7 @@ def test_guardar_un_barril_guarda_lo_que_sacas_de_cada_racion(web):
     assert web.post("/birrometro/", DATOS).status_code == 302
     b = Barril.objects.get()
     assert [(r.nombre, r.cl, r.precio_venta, r.cantidad) for r in b.raciones.all()] == [
-        ("Zurrito", 15, D("1.80"), 40), ("Caña", 20, D("2.50"), 60), ("Jarra", 40, D("4.00"), 20)
+        ("Zurito", 15, D("1.80"), 40), ("Caña", 20, D("2.50"), 60), ("Jarra", 40, D("4.00"), 20)
     ]  # fmt: skip
     assert "184,55" in web.get("/birrometro/").content.decode()  # el historial recalcula el beneficio
 

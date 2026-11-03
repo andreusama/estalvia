@@ -21,7 +21,7 @@ def portada(request):
         },
         {
             "nombre": "Birròmetro",
-            "descripcion": _("Cuánto ganas con cada barril de cerveza: zurritos, cañas y jarras."),
+            "descripcion": _("Cuánto ganas con cada barril de cerveza: zuritos, cañas y jarras."),
             "url": reverse("birrometro:inicio"),
         },
     ]

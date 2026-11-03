@@ -30,7 +30,7 @@ class ImporteField(forms.CharField):
 class BarrilForm(forms.Form):
     """Los datos del Birròmetro. Valida y convierte; las cuentas las hace `calculo.calcular`.
 
-    Por cada tipo de ración (zurrito, caña, jarra) hay tres campos: `<tipo>_cl`, `<tipo>_pvp` y `<tipo>_n`.
+    Por cada tipo de ración (zurito, caña, jarra) hay tres campos: `<tipo>_cl`, `<tipo>_pvp` y `<tipo>_n`.
     """
 
     marca = forms.CharField(max_length=120, label="Marca")

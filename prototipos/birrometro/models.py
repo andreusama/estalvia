@@ -23,7 +23,7 @@ class Barril(models.Model):
 
 
 class RacionBarril(models.Model):
-    """Lo que se saca de un barril en un tipo de ración (zurrito, caña, jarra): tamaño, precio y cuántas."""
+    """Lo que se saca de un barril en un tipo de ración (zurito, caña, jarra): tamaño, precio y cuántas."""
 
     barril = models.ForeignKey(Barril, on_delete=models.CASCADE, related_name="raciones")
     orden = models.PositiveSmallIntegerField(default=0)

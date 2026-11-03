@@ -3,7 +3,7 @@
 ## Contexts
 
 - [Bar](./prototipos/bar/GLOSSARY.md): digitaliza albaranes y facturas de proveedores de un bar a partir de fotos y dice qué está pagado, qué está pendiente y qué no cuadra.
-- [Birròmetro](./prototipos/birrometro/GLOSSARY.md): calcula cuánto se gana con un barril de cerveza según las raciones (zurritos, cañas, jarras) que se sacan.
+- [Birròmetro](./prototipos/birrometro/GLOSSARY.md): calcula cuánto se gana con un barril de cerveza según las raciones (zuritos, cañas, jarras) que se sacan.
 
 ## Relationships
 

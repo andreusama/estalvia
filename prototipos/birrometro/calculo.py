@@ -1,7 +1,7 @@
 """Birròmetro: cuánto se gana con un barril. Todo con decimales exactos y calculado aquí, nunca por la IA.
 
 Un barril de `litros` cuesta `precio` (sin IVA). Se pierde una `merma` en espuma y derrames y el resto se reparte en
-las raciones que decides sacar (zurritos, cañas, jarras...), sin pasarte de los litros que quedan. Cada ración se cobra
+las raciones que decides sacar (zuritos, cañas, jarras...), sin pasarte de los litros que quedan. Cada ración se cobra
 con IVA. El beneficio compara lo que entra sin IVA con lo que costó el barril entero (no cuenta alquiler, personal ni
 luz); lo que no se sirve se pierde y se nota en el beneficio.
 """
@@ -17,7 +17,7 @@ UMBRAL_SUBIDA = Decimal("5")  # % de subida del coste por litro que se avisa (el
 IVAS = [(10, "10 % (hostelería)"), (21, "21 %")]
 # Los tres tipos de ración: clave, nombre, centilitros y precio de partida. Tamaño y precio se cambian en la pantalla.
 TIPOS = [
-    ("zurrito", "Zurrito", 15, "1.80"),
+    ("zurito", "Zurito", 15, "1.80"),
     ("cana", "Caña", 20, "2.50"),
     ("jarra", "Jarra", 40, "4.00"),
 ]

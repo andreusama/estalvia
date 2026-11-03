@@ -7,7 +7,7 @@ Calcula cuánto se gana con un barril de cerveza según cuántas raciones se sac
 **Barril**: la compra de un barril de una marca: litros, fecha y precio sin IVA.
 _Evitar_: pedido, factura
 
-**Ración**: un tipo de servicio que se saca del barril (zurrito, caña o jarra), con su tamaño en centilitros, su precio de venta con IVA y cuántas se sacan.
+**Ración**: un tipo de servicio que se saca del barril (zurito, caña o jarra), con su tamaño en centilitros, su precio de venta con IVA y cuántas se sacan.
 
 **Merma**: el porcentaje del barril que se pierde en espuma, derrames y el final del barril.
 
